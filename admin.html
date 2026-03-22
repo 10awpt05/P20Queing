@@ -944,9 +944,17 @@ async function loadDate(){
 function refreshStats(){
   const amNums = new Set(getAmNumbers());
   const pmNums = new Set(getPmNumbers());
-  const amTaken=ticketsForDate.filter(t=>t.time==='AM'&&amNums.has(t.number)).length;
-  const pmTaken=ticketsForDate.filter(t=>t.time==='PM'&&pmNums.has(t.number)).length;
-  const tot=amTaken+pmTaken;
+
+  // Merge both sources for accurate counts
+  const takenFromTickets = new Set(ticketsForDate.map(t=>t.number));
+  const takenFromAtomic  = new Set(
+    Object.keys(takenNumbersData[currentDate] || {}).map(Number)
+  );
+  const allTaken = new Set([...takenFromTickets, ...takenFromAtomic]);
+
+  const amTaken = [...allTaken].filter(n => amNums.has(n)).length;
+  const pmTaken = [...allTaken].filter(n => pmNums.has(n)).length;
+  const tot = amTaken + pmTaken;
   const df=disabledNums[currentDate]||{};
   const dc=Object.entries(df).filter(([n,v])=>v&&(amNums.has(parseInt(n))||pmNums.has(parseInt(n)))).length;
   const total=getTotalSlots();
@@ -965,9 +973,14 @@ function refreshStats(){
 function renderGrid(){
   if(!currentDate) return;
   const df=disabledNums[currentDate]||{};
-  const taken=new Set(ticketsForDate.map(t=>t.number));
-  renderHalf('grid-am',getAmNumbers(),taken,df);
-  renderHalf('grid-pm',getPmNumbers(),taken,df);
+  // Merge taken numbers from tickets AND from atomic takenNumbers node
+  const takenFromTickets = new Set(ticketsForDate.map(t=>t.number));
+  const takenFromAtomic  = new Set(
+    Object.keys(takenNumbersData[currentDate] || {}).map(Number)
+  );
+  const taken = new Set([...takenFromTickets, ...takenFromAtomic]);
+  renderHalf('grid-am', getAmNumbers(), taken, df);
+  renderHalf('grid-pm', getPmNumbers(), taken, df);
 }
 function renderHalf(gid,nums,taken,df){
   const grid=document.getElementById(gid);grid.innerHTML='';
