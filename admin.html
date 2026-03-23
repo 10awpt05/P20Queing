@@ -796,7 +796,14 @@ db.ref('takenNumbers').on('value', s => {
 
 db.ref('tickets').on('value',s=>{
   allTickets=s.val()||{};
-  if(currentDate){rebuildTicketsForDate(currentDate);refreshStats();renderGrid();renderTicketList();}
+  // FIX: Always rebuild — don't skip if currentDate is already set.
+  // The old guard caused silent skips when the listener fired before loadDate().
+  if(currentDate){
+    rebuildTicketsForDate(currentDate);
+    refreshStats();
+    renderGrid();
+    renderTicketList();
+  }
 });
   // ── END CHANGE 1 ───────────────────────────────────────────────────────────
 
@@ -934,10 +941,14 @@ function showSettingsStatus(msg,ok){
 
 async function loadDate(){
   currentDate=document.getElementById('date-input').value;
-  if(!currentDate) return toast('⚠ Select a date first');
+  if(!currentDate)return toast('⚠ Select a date first');
   document.getElementById('loading-overlay').classList.remove('hide');
+  // FIX: Always rebuild from the current allTickets snapshot when date changes,
+  // then also re-read takenNumbers snapshot for the new date.
   rebuildTicketsForDate(currentDate);
-  refreshStats();renderGrid();renderTicketList();
+  refreshStats();
+  renderGrid();
+  renderTicketList();
   document.getElementById('loading-overlay').classList.add('hide');
 }
 
@@ -1023,14 +1034,46 @@ function renderTicketList(){
     ? ticketsForDate
     : ticketsForDate.filter(t => t.time === listFilter.toUpperCase());
 
-  document.getElementById('ticket-count-label').textContent=
-    filtered.length + ' ticket(s)' + (listFilter !== 'all' ? ' · ' + listFilter.toUpperCase() + ' only' : '');
+// FIX: Count label uses merged takenNumbers+tickets to match what the stats cards show.
+// Previously it only counted tickets, causing it to disagree with the stat cards.
+const takenAtomic = new Set(Object.keys(takenNumbersData[currentDate]||{}).map(Number));
+const amNums = new Set(getAmNumbers()), pmNums = new Set(getPmNumbers());
+let atomicExtra = 0;
+if(listFilter === 'all'){
+  atomicExtra = [...takenAtomic].filter(n => !new Set(ticketsForDate.map(t=>t.number)).has(n)).length;
+} else if(listFilter === 'am'){
+  atomicExtra = [...takenAtomic].filter(n => amNums.has(n) && !new Set(ticketsForDate.map(t=>t.number)).has(n)).length;
+} else {
+  atomicExtra = [...takenAtomic].filter(n => pmNums.has(n) && !new Set(ticketsForDate.map(t=>t.number)).has(n)).length;
+}
+document.getElementById('ticket-count-label').textContent=
+  (filtered.length + atomicExtra) + ' ticket(s)' + (listFilter !== 'all' ? ' · ' + listFilter.toUpperCase() + ' only' : '');
 
   if(!filtered.length){
     c.innerHTML='<div class="empty-msg">No '+(listFilter==='all'?'':''+listFilter.toUpperCase()+' ')+'numbers found for this date.</div>';
+    
     return;
   }
   const nowMs=Date.now();
+
+  const ticketNumSet = new Set(ticketsForDate.map(t => t.number));
+  const ghostNums = [...new Set(Object.keys(takenNumbersData[currentDate]||{}).map(Number))]
+    .filter(n => !ticketNumSet.has(n));
+  const shouldShowGhosts = listFilter === 'all';
+  const ghostHTML = shouldShowGhosts ? ghostNums.map(n =>
+  '<div class="ticket-row" style="background:#fff8f8;border-left:3px solid #fca5a5;padding:10px 14px;">'+
+    '<div class="ticket-row-top">'+
+      '<div class="tr-num" style="color:#dc2626;">#'+pad3(n)+'</div>'+
+      '<div class="tr-info">'+
+        '<div class="tr-name" style="color:#b91c1c;font-weight:700;">⚠️ Ghost — slot claimed, no ticket written</div>'+
+        '<div class="tr-meta" style="margin-top:4px;">'+
+          '<button onclick="releaseGhostNumber('+n+')" style="padding:4px 10px;background:#dc2626;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:700;cursor:pointer;">🔓 Release</button>'+
+        '</div>'+
+      '</div>'+
+    '</div>'+
+  '</div>'
+).join('') : '';
+  
   c.innerHTML=filtered.map(t=>{
     const isExp=new Date(t.expiresAt).getTime()<nowMs;
     const isDis=!!df[t.number];
@@ -1053,7 +1096,7 @@ function renderTicketList(){
       '</div>'+
       personCardsHTML(t,'tr')+
     '</div>';
-  }).join('');
+  }).join('') + ghostHTML;
 }
 
 function doSearch(){
