@@ -1018,6 +1018,17 @@ async function toggleNumber(num){
   toast((isDis?'✅ Enabled':'⊘ Disabled')+' #'+num);
 }
 
+  async function releaseGhostNumber(num) {
+  if (!currentDate) return;
+  if (!confirm('Release ghost slot #' + num + '?\nThis will free the slot so it can be claimed again.')) return;
+  try {
+    await db.ref('takenNumbers/' + currentDate + '/' + num).remove();
+    toast('🔓 Released ghost slot #' + num);
+  } catch(e) {
+    toast('❌ Error: ' + e.message);
+  }
+}
+
 function setListFilter(f) {
   listFilter = f;
   ['all','am','pm'].forEach(x => {
