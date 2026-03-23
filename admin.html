@@ -733,36 +733,15 @@ const FB_FREE_STORAGE_BYTES = 1 * 1024 * 1024 * 1024;
 
   // CHANGED: Firebase Email Authentication login
   const auth = firebase.auth();
-
-// Show a loading state while Firebase checks existing session
-document.getElementById('login-screen').style.display = 'none'; // hide until auth check done
-
-auth.onAuthStateChanged(user => {
-  if (user && ALLOWED_ADMIN_EMAILS.includes(user.email)) {
-    // Valid admin — hide login, start app
-    document.getElementById('login-screen').classList.add('hide');
-    initAdmin();
-  } else {
-    if (user) {
-      // Logged in but not an admin email
+  auth.onAuthStateChanged(user => {
+    if (user && ALLOWED_ADMIN_EMAILS.includes(user.email)) {
+      document.getElementById('login-screen').classList.add('hide');
+      initAdmin();
+    } else if (user) {
       auth.signOut();
       showLoginError('⛔ This account is not authorized as admin.');
     }
-    // Show login screen (whether fresh visit or unauthorized)
-    document.getElementById('login-screen').style.display = '';
-    document.getElementById('login-screen').classList.remove('hide');
-  }
-});
-
-async function doLogin() {
-  const email = document.getElementById('login-user').value.trim();
-  const pass  = document.getElementById('login-pass').value;
-  const err   = document.getElementById('login-error');
-  const btn   = document.querySelector('#login-screen button');
-
-  err.classList.remove('show');
-
-  if (!email || !pass)
+  });
 
   async function doLogin() {
     const email = document.getElementById('login-user').value.trim();
