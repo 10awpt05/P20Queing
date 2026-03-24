@@ -48,6 +48,33 @@
     .badge-green { background: #ecfdf5; color: #059669; }
 
     .chart-placeholder { height: 200px; display: flex; align-items: center; justify-content: center; background: #f8fafc; border-radius: 12px; border: 2px dashed #e2e8f0; color: var(--text-light); font-size: 14px; }
+
+    /* Deletion Styles */
+    .db-delete-form { margin-top: 10px; }
+    .db-form-row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 16px; }
+    .db-field { display: flex; flex-direction: column; gap: 5px; }
+    .db-field label { font-size: 12px; font-weight: 700; color: var(--text); }
+    .db-field input[type=date] { padding: 8px 12px; border: 1.5px solid #d1d5db; border-radius: 8px; font-size: 14px; font-family: inherit; background: #fff; cursor: pointer; }
+    .btn-preview-delete { padding: 9px 18px; background: var(--primary); color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 800; cursor: pointer; transition: background .2s; }
+    .btn-preview-delete:hover { background: var(--secondary); }
+    .delete-preview-box { background: #fffbeb; border: 2px solid #fbbf24; border-radius: 12px; padding: 18px 20px; margin-top: 10px; }
+    .dp-header { font-size: 15px; font-weight: 800; color: #92400e; margin-bottom: 10px; }
+    .dp-breakdown { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 14px; }
+    .dp-item { background: #fff; border: 1.5px solid #fde68a; border-radius: 8px; padding: 8px 14px; font-size: 13px; font-weight: 700; color: #78350f; }
+    .dp-item span { color: var(--red); font-size: 16px; display: block; margin-top: 2px; }
+    .dp-warn { font-size: 12px; color: #b45309; background: #fef3c7; border-radius: 6px; padding: 8px 12px; margin-bottom: 14px; }
+    .dp-actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+    .btn-confirm-delete { padding: 9px 20px; background: var(--red); color: #fff; border: none; border-radius: 8px; font-size: 13px; font-weight: 800; cursor: pointer; transition: background .2s; }
+    .btn-confirm-delete:hover { background: #b91c1c; }
+    .btn-cancel-delete { padding: 9px 16px; background: #f3f4f6; color: var(--text); border: 1.5px solid #d1d5db; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; }
+    
+    .delete-progress-box { display: flex; align-items: center; gap: 12px; background: #eff6ff; border: 1.5px solid #bfdbfe; border-radius: 10px; padding: 14px 18px; margin-top: 10px; font-size: 14px; font-weight: 700; color: #1d4ed8; }
+    .dp-spinner { width: 20px; height: 20px; border: 3px solid #bfdbfe; border-top-color: #2563eb; border-radius: 50%; animation: spin .7s linear infinite; }
+    .delete-done-box { background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 10px; padding: 14px 18px; margin-top: 10px; font-size: 14px; font-weight: 700; color: #15803d; }
+
+    /* Toast */
+    .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(100px); background: #1e293b; color: #fff; padding: 12px 24px; border-radius: 12px; font-size: 14px; font-weight: 700; z-index: 10000; transition: transform .3s cubic-bezier(.18,.89,.32,1.28); box-shadow: 0 10px 25px rgba(0,0,0,0.2); pointer-events: none; }
+    .toast.show { transform: translateX(-50%) translateY(0); }
   </style>
 </head>
 <body>
@@ -109,7 +136,44 @@
         </div>
       </div>
     </div>
+
+    <div class="data-card" style="margin-top: 20px;">
+      <div class="section-title">🗑️ Delete Records by Specific Date</div>
+      <p style="font-size:13px;color:var(--text-light);margin-bottom:16px;">
+        Select a specific date. All <strong>tickets</strong>, <strong>slots</strong>, <strong>taken numbers</strong>, and <strong>disabled numbers</strong> for that day will be permanently deleted.
+      </p>
+      <div class="db-delete-form">
+        <div class="db-form-row">
+          <div class="db-field">
+            <label>Select Date</label>
+            <input type="date" id="del-date">
+          </div>
+          <div class="db-field">
+            <label>&nbsp;</label>
+            <button class="btn-preview-delete" onclick="previewDateDelete()">🔍 Preview</button>
+          </div>
+        </div>
+        <div id="date-delete-preview" style="display:none;" class="delete-preview-box">
+          <div class="dp-header" id="dp-header-date"></div>
+          <div class="dp-breakdown" id="dp-breakdown-date"></div>
+          <div class="dp-warn">⚠️ This action is <strong>permanent and irreversible</strong>. Deleted data cannot be recovered.</div>
+          <div class="dp-actions">
+            <button class="btn-confirm-delete" id="btn-confirm-delete-date" onclick="confirmDateDelete()">🗑️ Delete Records for this Date</button>
+            <button class="btn-cancel-delete" onclick="cancelDateDeletePreview()">Cancel</button>
+          </div>
+        </div>
+        <div id="delete-progress" style="display:none;" class="delete-progress-box">
+          <div class="dp-spinner"></div>
+          <span id="delete-progress-text">Deleting…</span>
+        </div>
+        <div id="delete-done" style="display:none;" class="delete-done-box">
+          <span id="delete-done-text"></span>
+        </div>
+      </div>
+    </div>
   </div>
+
+  <div class="toast" id="toast"></div>
 
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
@@ -185,6 +249,90 @@
     }
 
     updateDashboard();
+
+    // --- DELETION LOGIC ---
+    let _pendingDeleteDate = null;
+
+    async function previewDateDelete() {
+      const date = document.getElementById('del-date').value;
+      if (!date) return toast('⚠️ Please select a date first');
+      document.getElementById('date-delete-preview').style.display = 'none';
+      document.getElementById('delete-done').style.display = 'none';
+      document.getElementById('delete-progress').style.display = 'none';
+      
+      try {
+        const [tickSnap, slotSnap, disSnap, takenSnap] = await Promise.all([
+          db.ref('tickets').once('value'),
+          db.ref('slots/' + date).once('value'),
+          db.ref('disabledNumbers/' + date).once('value'),
+          db.ref('takenNumbers/' + date).once('value')
+        ]);
+        
+        const tickets = tickSnap.val() || {}, slot = slotSnap.val(), disabled = disSnap.val(), taken = takenSnap.val();
+        const matchTickets = Object.entries(tickets).filter(([k, t]) => t && t.date === date);
+        const slotCount = slot ? 1 : 0, disabledCount = disabled ? Object.keys(disabled).length : 0, takenCount = taken ? Object.keys(taken).length : 0;
+        
+        _pendingDeleteDate = { date, matchTickets, slot, disabled, taken };
+        document.getElementById('dp-header-date').textContent = '📋 Preview: Deleting data for ' + date;
+        document.getElementById('dp-breakdown-date').innerHTML =
+          '<div class="dp-item">🎫 Tickets<span>' + matchTickets.length + '</span></div>' +
+          '<div class="dp-item">📅 Slot Entry<span>' + slotCount + '</span></div>' +
+          '<div class="dp-item">🚫 Disabled Nums<span>' + disabledCount + '</span></div>' +
+          '<div class="dp-item">🔢 Taken Nums<span>' + takenCount + '</span></div>';
+          
+        if (matchTickets.length === 0 && !slot && disabledCount === 0 && takenCount === 0) {
+          document.getElementById('dp-breakdown-date').innerHTML = '<div class="dp-item" style="color:#059669">✅ No records found for this date.</div>';
+          document.getElementById('btn-confirm-delete-date').style.display = 'none';
+        } else {
+          document.getElementById('btn-confirm-delete-date').style.display = '';
+        }
+        document.getElementById('date-delete-preview').style.display = 'block';
+      } catch (e) { toast('❌ Error: ' + e.message); }
+    }
+
+    function cancelDateDeletePreview() {
+      document.getElementById('date-delete-preview').style.display = 'none';
+      _pendingDeleteDate = null;
+    }
+
+    async function confirmDateDelete() {
+      if (!_pendingDeleteDate) return;
+      const { date, matchTickets } = _pendingDeleteDate;
+      if (!confirm('DELETE all records for ' + date + '?\n\nThis cannot be undone.')) return;
+      
+      document.getElementById('date-delete-preview').style.display = 'none';
+      document.getElementById('delete-done').style.display = 'none';
+      const prog = document.getElementById('delete-progress');
+      prog.style.display = 'flex';
+      const progText = document.getElementById('delete-progress-text');
+      
+      try {
+        const updates = {};
+        for (const [key] of matchTickets) updates['tickets/' + key] = null;
+        updates['slots/' + date] = null;
+        updates['disabledNumbers/' + date] = null;
+        updates['takenNumbers/' + date] = null;
+        
+        progText.textContent = 'Applying deletions for ' + date + '...';
+        await db.ref().update(updates);
+        
+        prog.style.display = 'none';
+        document.getElementById('delete-done').style.display = 'block';
+        document.getElementById('delete-done-text').textContent = '✅ Done! Deleted all records for ' + date + '.';
+        _pendingDeleteDate = null;
+        toast('🗑 Deleted all records for ' + date);
+      } catch (e) {
+        prog.style.display = 'none';
+        toast('❌ Error: ' + e.message);
+      }
+    }
+
+    function toast(msg) {
+      const e = document.getElementById('toast');
+      e.textContent = msg;
+      e.classList.add('show');
+      setTimeout(() => e.classList.remove('show'), 2800);
+    }
   </script>
 </body>
 </html>
