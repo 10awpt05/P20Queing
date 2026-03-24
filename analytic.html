@@ -36,9 +36,11 @@
 
     .section-title { font-size: 18px; font-weight: 800; margin-bottom: 16px; display: flex; align-items: center; gap: 10px; }
     .dashboard-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .dashboard-full { margin-top: 20px; }
     @media (max-width: 768px) { .dashboard-row { grid-template-columns: 1fr; } }
 
     .data-card { background: var(--card); padding: 20px; border-radius: 16px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+    .scroll-list { max-height: 300px; overflow-y: auto; margin-top: 10px; }
     .list-item { padding: 12px; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; }
     .list-item:last-child { border-bottom: none; }
     .item-main { font-weight: 600; font-size: 14px; }
@@ -111,13 +113,28 @@
 
     <div class="dashboard-row">
       <div class="data-card">
-        <div class="section-title">👥 Active Sessions</div>
-        <div id="active-list">
+        <div class="section-title">
+          <span>� Currently Online</span>
+          <span class="badge badge-green" id="online-badge">Live</span>
+        </div>
+        <div class="scroll-list" id="active-list">
           <div style="padding: 20px; text-align: center; color: var(--text-light);">Loading active users...</div>
         </div>
       </div>
       <div class="data-card">
-        <div class="section-title">📈 Weekly Activity</div>
+        <div class="section-title">
+          <span>� Visitor History</span>
+          <button class="btn-cancel-delete" style="font-size: 11px; padding: 4px 8px;" onclick="clearVisitors()">🗑️ Clear Log</button>
+        </div>
+        <div class="scroll-list" id="visitor-list">
+          <div style="padding: 20px; text-align: center; color: var(--text-light);">Loading visitor history...</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="dashboard-row" style="margin-top: 20px;">
+      <div class="data-card">
+        <div class="section-title">📈 Analytics Overview</div>
         <div class="chart-placeholder">
           Activity chart will appear here as data grows
         </div>
@@ -135,39 +152,38 @@
           </div>
         </div>
       </div>
-    </div>
-
-    <div class="data-card" style="margin-top: 20px;">
-      <div class="section-title">🗑️ Delete Records by Specific Date</div>
-      <p style="font-size:13px;color:var(--text-light);margin-bottom:16px;">
-        Select a specific date. All <strong>tickets</strong>, <strong>slots</strong>, <strong>taken numbers</strong>, and <strong>disabled numbers</strong> for that day will be permanently deleted.
-      </p>
-      <div class="db-delete-form">
-        <div class="db-form-row">
-          <div class="db-field">
-            <label>Select Date</label>
-            <input type="date" id="del-date">
+      <div class="data-card">
+        <div class="section-title">🗑️ Delete Records by Specific Date</div>
+        <p style="font-size:13px;color:var(--text-light);margin-bottom:16px;">
+          Select a specific date. All <strong>tickets</strong>, <strong>slots</strong>, <strong>taken numbers</strong>, and <strong>disabled numbers</strong> for that day will be permanently deleted.
+        </p>
+        <div class="db-delete-form">
+          <div class="db-form-row">
+            <div class="db-field">
+              <label>Select Date</label>
+              <input type="date" id="del-date">
+            </div>
+            <div class="db-field">
+              <label>&nbsp;</label>
+              <button class="btn-preview-delete" onclick="previewDateDelete()">🔍 Preview</button>
+            </div>
           </div>
-          <div class="db-field">
-            <label>&nbsp;</label>
-            <button class="btn-preview-delete" onclick="previewDateDelete()">🔍 Preview</button>
+          <div id="date-delete-preview" style="display:none;" class="delete-preview-box">
+            <div class="dp-header" id="dp-header-date"></div>
+            <div class="dp-breakdown" id="dp-breakdown-date"></div>
+            <div class="dp-warn">⚠️ This action is <strong>permanent and irreversible</strong>. Deleted data cannot be recovered.</div>
+            <div class="dp-actions">
+              <button class="btn-confirm-delete" id="btn-confirm-delete-date" onclick="confirmDateDelete()">🗑️ Delete Records for this Date</button>
+              <button class="btn-cancel-delete" onclick="cancelDateDeletePreview()">Cancel</button>
+            </div>
           </div>
-        </div>
-        <div id="date-delete-preview" style="display:none;" class="delete-preview-box">
-          <div class="dp-header" id="dp-header-date"></div>
-          <div class="dp-breakdown" id="dp-breakdown-date"></div>
-          <div class="dp-warn">⚠️ This action is <strong>permanent and irreversible</strong>. Deleted data cannot be recovered.</div>
-          <div class="dp-actions">
-            <button class="btn-confirm-delete" id="btn-confirm-delete-date" onclick="confirmDateDelete()">🗑️ Delete Records for this Date</button>
-            <button class="btn-cancel-delete" onclick="cancelDateDeletePreview()">Cancel</button>
+          <div id="delete-progress" style="display:none;" class="delete-progress-box">
+            <div class="dp-spinner"></div>
+            <span id="delete-progress-text">Deleting…</span>
           </div>
-        </div>
-        <div id="delete-progress" style="display:none;" class="delete-progress-box">
-          <div class="dp-spinner"></div>
-          <span id="delete-progress-text">Deleting…</span>
-        </div>
-        <div id="delete-done" style="display:none;" class="delete-done-box">
-          <span id="delete-done-text"></span>
+          <div id="delete-done" style="display:none;" class="delete-done-box">
+            <span id="delete-done-text"></span>
+          </div>
         </div>
       </div>
     </div>
@@ -224,9 +240,33 @@
         }
       });
 
-      // 2. Total Visitors
+      // 2. Total Visitors & Visitor List
       db.ref("visitors").on("value", (snap) => {
-        document.getElementById("total-visitors").textContent = snap.numChildren();
+        const visitors = snap.val() || {};
+        const count = Object.keys(visitors).length;
+        document.getElementById("total-visitors").textContent = count;
+        
+        const list = document.getElementById("visitor-list");
+        list.innerHTML = "";
+        
+        const sorted = Object.entries(visitors).sort((a,b) => b[1].firstVisit - a[1].firstVisit);
+        sorted.forEach(([id, v]) => {
+          const isMobile = /iPhone|iPad|iPod|Android/i.test(v.ua);
+          const div = document.createElement("div");
+          div.className = "list-item";
+          div.innerHTML = `
+            <div>
+              <div class="item-main">${isMobile ? '📱 Mobile Visitor' : '💻 Desktop Visitor'}</div>
+              <div class="item-sub">First visit: ${new Date(v.firstVisit).toLocaleString()}</div>
+            </div>
+            <span class="badge ${isMobile ? 'badge-blue' : 'badge-green'}">${isMobile ? 'Mobile' : 'Desktop'}</span>
+          `;
+          list.appendChild(div);
+        });
+        
+        if (count === 0) {
+          list.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--text-light);">No visitor history found.</div>';
+        }
       });
 
       // 3. Tickets & Session Statistics
@@ -249,6 +289,14 @@
     }
 
     updateDashboard();
+
+    async function clearVisitors() {
+      if (!confirm("Are you sure you want to clear the entire visitor log?\nThis will reset the total visitor count to zero.")) return;
+      try {
+        await db.ref("visitors").remove();
+        toast("🗑️ Visitor log cleared.");
+      } catch (e) { toast("❌ Error: " + e.message); }
+    }
 
     // --- DELETION LOGIC ---
     let _pendingDeleteDate = null;
