@@ -12,7 +12,7 @@
   </head>
   <body>
 
-    <div class="loading-overlay" id="time-sync-overlay"></div>
+    <div class="loading-overlay" id="time-sync-overlay">
       <div class="spinner"></div>
       <div class="loading-text">Synchronizing Server Time...</div>
     </div>
@@ -967,6 +967,13 @@
 
         // Hide loading overlay
         document.getElementById("time-sync-overlay").classList.add("hide");
+
+        // Welcome popup check (wait for server time)
+        const welcomeKey = 'pq_welcome_seen';
+        const welcomeToday = now.toISOString().slice(0, 10);
+        if (localStorage.getItem(welcomeKey) === welcomeToday) {
+          document.getElementById('welcome-overlay').style.display = 'none';
+        }
 
         // Initial renders
         renderCard();
@@ -2392,7 +2399,7 @@
       }
 
       async function purgeExpiredTickets() {
-        const nowMs = Date.now();
+        const nowMs = getServerTime().getTime();
         const del = myTickets.filter(
           (t) => nowMs > new Date(t.date + "T23:59:59").getTime() + 86400000,
         );
@@ -2656,15 +2663,6 @@
           tapCount = 0;
         }, 2000);
       }
-
-      (function() {
-    const KEY = 'pq_welcome_seen';
-    const today = getServerTime().toISOString().slice(0, 10); // "YYYY-MM-DD"
-    const overlay = document.getElementById('welcome-overlay');
-    if (localStorage.getItem(KEY) === today) {
-      overlay.style.display = 'none'; // already seen today — hide immediately
-    }
-  })();
 
   function dismissWelcome() {
     const today = getServerTime().toISOString().slice(0, 10);
