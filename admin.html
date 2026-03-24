@@ -60,6 +60,7 @@
   <div class="tabs">
     <button class="tab-btn active" onclick="switchTab('grid')" id="tab-grid">Number Grid</button>
     <button class="tab-btn" onclick="switchTab('list')" id="tab-list">Number List</button>
+    <button class="tab-btn" onclick="switchTab('analytics')" id="tab-analytics">📊 Analytics</button>
     <button class="tab-btn" onclick="switchTab('settings')" id="tab-settings">⚙ Schedule Settings</button>
     <button class="tab-btn tab-danger" onclick="switchTab('dbmanage')" id="tab-dbmanage">🗄️ Database</button>
   </div>
@@ -512,6 +513,22 @@ const firebaseConfig={
 firebase.initializeApp(firebaseConfig);
 const db=firebase.database();
 
+// Synchronize with Firebase Server Time to prevent device time bypass
+let serverTimeOffset = 0;
+let serverTimeSynced = false;
+
+db.ref(".info/serverTimeOffset").on("value", (snap) => {
+  serverTimeOffset = snap.val() || 0;
+  if (!serverTimeSynced) {
+    serverTimeSynced = true;
+    // Hide initial loading if needed, or trigger dependent logic
+  }
+});
+
+function getServerTime() {
+  return new Date(Date.now() + serverTimeOffset);
+}
+
 // ── Dynamic Slot Config ──────────────────────────────────────────────────────
 const DEFAULT_SLOT_CONFIG={amCount:75,amStart:1,amType:'odd',pmCount:75,pmStart:151,pmType:'odd'};
 let slotConfig=Object.assign({},DEFAULT_SLOT_CONFIG);
@@ -592,6 +609,7 @@ function resetSlotDefaults(){
   _scAmType='odd';_scPmType='odd';setType('am','odd',true);setType('pm','odd',true);updateSlotPreview();
 }
 async function saveSlotConfig(){
+  if (!serverTimeSynced) return toast('Waiting for server time synchronization...');
   const amCount=parseInt(document.getElementById('sc-am-count').value);
   const amStart=parseInt(document.getElementById('sc-am-start').value);
   const pmCount=parseInt(document.getElementById('sc-pm-count').value);
@@ -632,12 +650,12 @@ const FB_FREE_STORAGE_BYTES=1*1024*1024*1024;
 // ── Populate year dropdown ──
 (function(){
   const sel=document.getElementById('del-year');
-  const thisYear=new Date().getFullYear();
+  const thisYear=getServerTime().getFullYear();
   for(let y=thisYear+1;y>=thisYear-5;y--){
     const o=document.createElement('option');
     o.value=y;o.textContent=y;if(y===thisYear)o.selected=true;sel.appendChild(o);
   }
-  const cm=String(new Date().getMonth()+1).padStart(2,'0');
+  const cm=String(getServerTime().getMonth()+1).padStart(2,'0');
   document.getElementById('del-month').value=cm;
 })();
 
@@ -707,7 +725,7 @@ function initAdmin(){
     if(currentDate){refreshStats();renderGrid();}
   });
 
-  const today=new Date();
+  const today=getServerTime();
   const ts=today.getFullYear()+'-'+pad(today.getMonth()+1)+'-'+pad(today.getDate());
   document.getElementById('date-input').value=ts;
   setTimeout(loadDate,400);
@@ -775,6 +793,7 @@ function setDeviceLimitMode(mode){
 }
 
 async function saveSettings(){
+  if (!serverTimeSynced) return toast('Waiting for server time synchronization...');
   const isOn=document.getElementById('claiming-toggle').checked;
   const isUnlimited=document.getElementById('dlimit-btn-unlimited').classList.contains('active');
   const deviceLimit=isUnlimited?0:(parseInt(document.getElementById('device-limit').value)||1);
@@ -914,7 +933,7 @@ function renderTicketList(){
     return;
   }
 
-  const nowMs=Date.now();
+  const nowMs=getServerTime().getTime();
   const ticketNumSet=new Set(ticketsForDate.map(t=>t.number));
   const ghostNums=[...new Set(Object.keys(takenNumbersData[currentDate]||{}).map(Number))].filter(n=>!ticketNumSet.has(n));
   const shouldShowGhosts=listFilter==='all';
@@ -963,7 +982,7 @@ function doSearch(){
   });
   if(!matches.length){resultsDiv.innerHTML='<div class="search-empty">❌ No numbers found for "<strong>'+esc(query)+'</strong>" on <strong>'+currentDate+'</strong></div>';return;}
   matches.sort((a,b)=>b.date.localeCompare(a.date)||a.number-b.number);
-  const nowMs=Date.now();
+  const nowMs=getServerTime().getTime();
   resultsDiv.innerHTML=matches.map(t=>{
     const d=new Date(t.date+'T00:00:00');
     const dateLabel=MONTHS[d.getMonth()].slice(0,3)+' '+d.getDate()+', '+d.getFullYear();
@@ -1013,9 +1032,15 @@ function personCardsHTML(t,style='sr'){
 function esc(s){return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 function switchTab(tab){
-  ['grid','list','settings','dbmanage'].forEach(t=>{
-    document.getElementById('view-'+t).style.display=t===tab?'block':'none';
-    document.getElementById('tab-'+t).className='tab-btn'+(t===tab?' active':'')+(t==='dbmanage'?' tab-danger':'');
+  if(tab==='analytics'){
+    window.location.href='analytic.html';
+    return;
+  }
+  ['grid','list','settings','dbmanage','analytics'].forEach(t=>{
+    const view=document.getElementById('view-'+t);
+    if(view) view.style.display=t===tab?'block':'none';
+    const btn=document.getElementById('tab-'+t);
+    if(btn) btn.className='tab-btn'+(t===tab?' active':'')+(t==='dbmanage'?' tab-danger':'');
   });
   if(tab==='dbmanage')calcStorage();
 }
@@ -1080,21 +1105,24 @@ async function previewMonthDelete(){
   document.getElementById('delete-preview').style.display='none';
   document.getElementById('delete-done').style.display='none';
   document.getElementById('delete-progress').style.display='none';
-  const[tickSnap,slotSnap,disSnap]=await Promise.all([
-    db.ref('tickets').once('value'),db.ref('slots').once('value'),db.ref('disabledNumbers').once('value')
+  const[tickSnap,slotSnap,disSnap,takenSnap]=await Promise.all([
+    db.ref('tickets').once('value'),db.ref('slots').once('value'),
+    db.ref('disabledNumbers').once('value'),db.ref('takenNumbers').once('value')
   ]);
-  const tickets=tickSnap.val()||{},slots=slotSnap.val()||{},disabled=disSnap.val()||{};
+  const tickets=tickSnap.val()||{},slots=slotSnap.val()||{},disabled=disSnap.val()||{},taken=takenSnap.val()||{};
   const matchTickets=Object.entries(tickets).filter(([k,t])=>t&&t.date&&t.date.startsWith(prefix));
   const matchSlots=Object.keys(slots).filter(d=>d.startsWith(prefix));
   const matchDisabled=Object.keys(disabled).filter(d=>d.startsWith(prefix));
+  const matchTaken=Object.keys(taken).filter(d=>d.startsWith(prefix));
   const monthName=MONTHS[parseInt(month,10)-1];
-  _pendingDeleteMonth={prefix,matchTickets,matchSlots,matchDisabled,monthName,year};
+  _pendingDeleteMonth={prefix,matchTickets,matchSlots,matchDisabled,matchTaken,monthName,year};
   document.getElementById('dp-header').textContent='📋 Preview: Deleting data for '+monthName+' '+year;
   document.getElementById('dp-breakdown').innerHTML=
     '<div class="dp-item">🎫 Tickets<span>'+matchTickets.length+'</span></div>'+
     '<div class="dp-item">📅 Slot Entries<span>'+matchSlots.length+'</span></div>'+
-    '<div class="dp-item">🚫 Disabled Num Entries<span>'+matchDisabled.length+'</span></div>';
-  if(matchTickets.length===0&&matchSlots.length===0&&matchDisabled.length===0){
+    '<div class="dp-item">🚫 Disabled Num Entries<span>'+matchDisabled.length+'</span></div>'+
+    '<div class="dp-item">🔢 Taken Number Entries<span>'+matchTaken.length+'</span></div>';
+  if(matchTickets.length===0&&matchSlots.length===0&&matchDisabled.length===0&&matchTaken.length===0){
     document.getElementById('dp-breakdown').innerHTML='<div class="dp-item" style="color:#059669">✅ No records found for this month.</div>';
     document.querySelector('.dp-warn')&&(document.querySelector('.dp-warn').style.display='none');
     document.getElementById('btn-confirm-delete').style.display='none';
@@ -1109,36 +1137,35 @@ function cancelDeletePreview(){document.getElementById('delete-preview').style.d
 
 async function confirmMonthDelete(){
   if(!_pendingDeleteMonth)return;
-  const{prefix,matchTickets,matchSlots,matchDisabled,monthName,year}=_pendingDeleteMonth;
-  const total=matchTickets.length+matchSlots.length+matchDisabled.length;
+  const{prefix,matchTickets,matchSlots,matchDisabled,matchTaken,monthName,year}=_pendingDeleteMonth;
+  const total=matchTickets.length+matchSlots.length+matchDisabled.length+matchTaken.length;
   if(!confirm('DELETE '+total+' records for '+monthName+' '+year+'?\n\nThis cannot be undone.'))return;
   document.getElementById('delete-preview').style.display='none';
   document.getElementById('delete-done').style.display='none';
   const prog=document.getElementById('delete-progress');prog.style.display='flex';
   const progText=document.getElementById('delete-progress-text');
-  let done=0;
+  
   try{
-    for(const[key]of matchTickets){
-      progText.textContent='Deleting tickets… ('+done+'/'+matchTickets.length+')';
-      await db.ref('tickets/'+key).remove();done++;
-    }
-    for(const date of matchSlots){
-      progText.textContent='Deleting slot entries… ('+matchSlots.indexOf(date)+'/'+matchSlots.length+')';
-      await db.ref('slots/'+date).remove();
-    }
-    for(const date of matchDisabled){
-      progText.textContent='Deleting disabled number entries…';await db.ref('disabledNumbers/'+date).remove();
-    }
+    // Efficiently batch delete using a single update call
+    const updates={};
+    for(const[key]of matchTickets) updates['tickets/'+key]=null;
+    for(const date of matchSlots) updates['slots/'+date]=null;
+    for(const date of matchDisabled) updates['disabledNumbers/'+date]=null;
+    for(const date of matchTaken) updates['takenNumbers/'+date]=null;
+    
+    progText.textContent='Applying deletions...';
+    await db.ref().update(updates);
+    
     prog.style.display='none';
     document.getElementById('delete-done').style.display='block';
     document.getElementById('delete-done-text').textContent=
-      '✅ Done! Deleted '+matchTickets.length+' tickets, '+matchSlots.length+' slot entries, '+matchDisabled.length+' disabled-number entries for '+monthName+' '+year+'.';
+      '✅ Done! Deleted '+matchTickets.length+' tickets, '+matchSlots.length+' slots, '+matchDisabled.length+' disabled-numbers, and '+matchTaken.length+' taken-number entries for '+monthName+' '+year+'.';
     _pendingDeleteMonth=null;toast('🗑 Deleted all '+monthName+' '+year+' records');calcStorage();
   }catch(e){prog.style.display='none';toast('❌ Error: '+e.message);}
 }
 
 async function deleteAllRecords(){
-  const first=confirm('⚠️ DELETE ALL TICKETS, SLOTS & DISABLED NUMBERS?\n\nThis will wipe everything. Are you absolutely sure?');
+  const first=confirm('⚠️ DELETE ALL TICKETS, SLOTS, TAKEN NUMBERS & DISABLED NUMBERS?\n\nThis will wipe everything. Are you absolutely sure?');
   if(!first)return;
   const second=confirm('🔴 FINAL WARNING: This is permanent and cannot be undone.\n\nType OK below to proceed.');
   if(!second)return;
@@ -1146,10 +1173,15 @@ async function deleteAllRecords(){
   document.getElementById('delete-done').style.display='none';
   document.getElementById('delete-progress-text').textContent='Deleting all records…';
   try{
-    await Promise.all([db.ref('tickets').remove(),db.ref('slots').remove(),db.ref('disabledNumbers').remove()]);
+    await Promise.all([
+      db.ref('tickets').remove(),
+      db.ref('slots').remove(),
+      db.ref('disabledNumbers').remove(),
+      db.ref('takenNumbers').remove()
+    ]);
     prog.style.display='none';
     document.getElementById('delete-done').style.display='block';
-    document.getElementById('delete-done-text').textContent='✅ All tickets, slots, and disabled numbers have been deleted.';
+    document.getElementById('delete-done-text').textContent='✅ All tickets, slots, taken numbers, and disabled numbers have been deleted.';
     toast('☢️ All records deleted');calcStorage();
   }catch(e){prog.style.display='none';toast('❌ Error: '+e.message);}
 }
