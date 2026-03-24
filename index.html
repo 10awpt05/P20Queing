@@ -333,6 +333,15 @@ const firebaseConfig={
 firebase.initializeApp(firebaseConfig);
 const db=firebase.database();
 
+// Synchronize with Firebase Server Time to prevent device time bypass
+let serverTimeOffset = 0;
+db.ref(".info/serverTimeOffset").on("value", (snap) => {
+  serverTimeOffset = snap.val() || 0;
+});
+function getServerTime() {
+  return new Date(Date.now() + serverTimeOffset);
+}
+
 const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
 const DAYS=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
 
@@ -352,17 +361,19 @@ function getLimitAm(){return slotConfig.amCount;}
 function getLimitPm(){return slotConfig.pmCount;}
 function getLimitTotal(){return slotConfig.amCount+slotConfig.pmCount;}
 
-let now=new Date();
+let now=getServerTime();
 let todayStr=toDateStr(now);
 
-// FIX 1: getTargetDate skips weekends properly.
+// FIX 1: getTargetDate skips weekends properly (Friday & Saturday).
+// Thursday (4) → skip Fri+Sat → Sunday (+3)
 // Friday (5) → skip Sat+Sun → Monday (+3)
 // Saturday (6) → skip Sun → Monday (+2)
 // All other days → tomorrow (+1)
 function getTargetDate(from){
-  const d=from||new Date();
+  const d=from||getServerTime();
   const day=d.getDay();
   let offset=1;
+  if(day===4) offset=3; // Thursday → Sunday
   if(day===5) offset=3; // Friday → Monday
   if(day===6) offset=2; // Saturday → Monday
   return addDays(d,offset);
@@ -393,7 +404,7 @@ function fmt(t){if(!t)return'—';const[h,m]=t.split(':').map(Number);const ap=h
 // FIX 2: toMin-based time comparison (not string) prevents midnight edge-case bugs
 function toMin(t){const[h,m]=t.split(':').map(Number);return h*60+m;}
 
-function isWeekend(d){const day=(d||new Date()).getDay();return day===5||day===6;}
+function isWeekend(d){const day=(d||getServerTime()).getDay();return day===5||day===6;}
 function toast(msg){const e=document.getElementById('toast');e.textContent=msg;e.classList.add('show');setTimeout(()=>e.classList.remove('show'),2800);}
 
 // ─── NAME VALIDATION ──────────────────────────────────────────────────────────
@@ -487,8 +498,8 @@ function validateBen2Fields(){
 // ─── CLAIMING STATUS ──────────────────────────────────────────────────────────
 function getClaimingStatus(){
   if(!scheduleSettings.claimingEnabled)return'blocked';
-  if(isWeekend(new Date()))return'weekend';
-  const n=new Date();const c=n.getHours()*60+n.getMinutes();
+  if(isWeekend(getServerTime()))return'weekend';
+  const n=getServerTime();const c=n.getHours()*60+n.getMinutes();
   if(c<toMin(scheduleSettings.claimStart)||c>=toMin(scheduleSettings.claimEnd))return'closed';
   return'open';
 }
@@ -881,7 +892,7 @@ async function generateNumber(){
       ben1Name:ben1Name||'',idType:idType||'',idNumber:idNumber||'',
       ben2Name:ben2Name||'',idType2:idType2||'',idNumber2:idNumber2||'',
       time:selectedTime,date:targetStr,
-      issuedAt:new Date().toISOString(),expiresAt:expiry.toISOString(),
+      issuedAt:getServerTime().toISOString(),expiresAt:expiry.toISOString(),
       createdAt:firebase.database.ServerValue.TIMESTAMP,disabled:false
     };
 
@@ -927,7 +938,7 @@ function setBar(id,used,max){
 }
 
 function isTicketValid(t){
-  const n=new Date();const cur=n.getHours()*60+n.getMinutes();
+  const n=getServerTime();const cur=n.getHours()*60+n.getMinutes();
   const ts=toDateStr(n);const td=new Date(t.date+'T00:00:00'),today=new Date(ts+'T00:00:00');
   if(td<today)return'expired';if(td>today)return'future';
   const sk=t.time==='AM'?'amStart':'pmStart',ek=t.time==='AM'?'amEnd':'pmEnd';
@@ -974,7 +985,7 @@ function renderTickets(){
 }
 
 async function purgeExpiredTickets(){
-  const nowMs=Date.now();
+  const nowMs=getServerTime().getTime();
   const del=myTickets.filter(t=>nowMs>new Date(t.date+'T23:59:59').getTime()+86400000);
   if(!del.length)return;
   const ids=new Set(del.map(t=>t.id));
@@ -986,33 +997,34 @@ async function purgeExpiredTickets(){
 
 const RESET_HOUR=18;
 async function dailyReset(){
-  const n=new Date();if(n.getHours()<RESET_HOUR)return;
+  const n=getServerTime();if(n.getHours()<RESET_HOUR)return;
   const resetKey=toDateStr(n)+'_reset';
   if(localStorage.getItem('pq_last_reset')===resetKey)return;
   try{
+    const ds=toDateStr(n);
     // FIX 10: Also clean up takenNumbers for today on daily reset to prevent ghost-blocking
     await Promise.all([
-      db.ref('slots/'+todayStr).remove(),
-      db.ref('disabledNumbers/'+todayStr).remove(),
-      db.ref('takenNumbers/'+todayStr).remove()
+      db.ref('slots/'+ds).remove(),
+      db.ref('disabledNumbers/'+ds).remove(),
+      db.ref('takenNumbers/'+ds).remove()
     ]);
     localStorage.setItem('pq_last_reset',resetKey);
   }catch(e){console.warn('Daily reset error:',e);}
 }
 
 function scheduleNextReset(){
-  const n=new Date();
+  const n=getServerTime();
   const resetToday=new Date(n.getFullYear(),n.getMonth(),n.getDate(),RESET_HOUR,0,0,0);
   let ms=resetToday.getTime()-n.getTime();if(ms<=0)ms+=86400000;
   setTimeout(async()=>{
-    now=new Date();todayStr=toDateStr(now);targetStr=toDateStr(getTargetDate(now));
+    now=getServerTime();todayStr=toDateStr(now);targetStr=toDateStr(getTargetDate(now));
     await dailyReset();updateStatusBanner();renderCard();renderTickets();purgeExpiredTickets();scheduleNextReset();
   },ms);
 }
 
 renderCard();renderTickets();purgeExpiredTickets();dailyReset();scheduleNextReset();
 setInterval(()=>{
-  now=new Date();todayStr=toDateStr(now);targetStr=toDateStr(getTargetDate(now));
+  now=getServerTime();todayStr=toDateStr(now);targetStr=toDateStr(getTargetDate(now));
   updateStatusBanner();renderCard();renderTickets();purgeExpiredTickets();
 },60000);
 
