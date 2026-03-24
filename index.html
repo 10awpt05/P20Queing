@@ -2651,17 +2651,24 @@
       function handleTitleTap() {
         tapCount++;
         if (tapTimer) clearTimeout(tapTimer);
+
         if (tapCount >= 5) {
           tapCount = 0;
+          toast("Redirecting to Admin Panel...");
           window.location.href = "admin.html";
           return;
         }
+
+        const remaining = 5 - tapCount;
+        toast(`Tap ${remaining} more time${remaining > 1 ? 's' : ''} to open the admin panel.`);
+
         const titleEl = document.getElementById("header-title");
         titleEl.style.opacity = ".6";
         setTimeout(() => (titleEl.style.opacity = "1"), 120);
+
         tapTimer = setTimeout(() => {
           tapCount = 0;
-        }, 2000);
+        }, 3000);
       }
 
   function dismissWelcome() {
