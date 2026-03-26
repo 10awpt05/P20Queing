@@ -1430,12 +1430,19 @@
       function getUnavailableCount(dateStr, session) {
         const dayTaken = takenNumbersData[dateStr] || {};
         const dayDisabled = disabledNumbers[dateStr] || {};
-        const sessionNums =
-          session === "AM" ? getAmNumbers() : getPmNumbers();
+        
+        // Use a Set of keys for faster lookup and to handle potential string/number mismatches
+        const takenSet = new Set(Object.keys(dayTaken).map(n => n.toString()));
+        const disabledSet = new Set(Object.keys(dayDisabled).map(n => n.toString()));
+        
+        const sessionNums = session === "AM" ? getAmNumbers() : getPmNumbers();
         
         let count = 0;
         for (const n of sessionNums) {
-          if (dayTaken[n] || dayDisabled[n]) count++;
+          const s = n.toString();
+          if (takenSet.has(s) || disabledSet.has(s)) {
+            count++;
+          }
         }
         return count;
       }
@@ -1681,9 +1688,10 @@
         const limAm = getLimitAm(),
           limPm = getLimitPm(),
           limTotal = getLimitTotal();
-        const amLeft = limAm - amUnavailable,
-          pmLeft = limPm - pmUnavailable;
-        const allFull = amUnavailable + pmUnavailable >= limTotal;
+        const amLeft = Math.max(0, limAm - amUnavailable),
+          pmLeft = Math.max(0, limPm - pmUnavailable);
+        const allFull = (amUnavailable + pmUnavailable) >= limTotal;
+        
         document.getElementById("pill-am-count").textContent =
           amLeft > 0 ? amLeft + " left" : "FULL";
         document.getElementById("pill-am-sub").textContent =
@@ -1691,6 +1699,7 @@
         document
           .getElementById("pill-am")
           .classList.toggle("full-slot", amLeft <= 0);
+        
         document.getElementById("pill-pm-count").textContent =
           pmLeft > 0 ? pmLeft + " left" : "FULL";
         document.getElementById("pill-pm-sub").textContent =
