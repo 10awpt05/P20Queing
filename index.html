@@ -1113,9 +1113,13 @@
         const d = from || getServerTime();
         const day = d.getDay();
         let offset = 1;
-        if (day === 4) offset = 3; // Thursday → Sunday
-        if (day === 5) offset = 3; // Friday → Monday
-        if (day === 6) offset = 2; // Saturday → Monday
+        // Monday to Thursday -> next day (+1)
+        // Friday (5) -> targets Monday (+3)
+        // Saturday (6) -> targets Monday (+2)
+        // Sunday (0) -> targets Monday (+1)
+        if (day === 5) offset = 3; 
+        if (day === 6) offset = 2;
+        if (day === 0) offset = 1;
         return addDays(d, offset);
       }
 
@@ -1422,12 +1426,18 @@
         return { start: toDateStr(d), end: toDateStr(end) };
       }
 
-      // FIX 3: Helper — count taken numbers for a session from the atomic takenNumbers node
-      function getTakenCountFromAtomic(dateStr, session) {
-        const dayData = takenNumbersData[dateStr] || {};
-        const nums =
-          session === "AM" ? new Set(getAmNumbers()) : new Set(getPmNumbers());
-        return Object.keys(dayData).filter((n) => nums.has(parseInt(n))).length;
+      // FIX 3: Helper — count unavailable slots (taken OR disabled) for a session
+      function getUnavailableCount(dateStr, session) {
+        const dayTaken = takenNumbersData[dateStr] || {};
+        const dayDisabled = disabledNumbers[dateStr] || {};
+        const sessionNums =
+          session === "AM" ? getAmNumbers() : getPmNumbers();
+        
+        let count = 0;
+        for (const n of sessionNums) {
+          if (dayTaken[n] || dayDisabled[n]) count++;
+        }
+        return count;
       }
 
       // ── Firebase listeners ────────────────────────────────────────────────────────
@@ -1453,6 +1463,8 @@
 
       db.ref("disabledNumbers").on("value", (s) => {
         disabledNumbers = s.val() || {};
+        renderCard();
+        updateSlotBanner();
         renderTickets();
       });
 
@@ -1535,15 +1547,14 @@
           fmt(scheduleSettings.pmStart) + "–" + fmt(scheduleSettings.pmEnd);
       }
 
-      // FIX 5: applySlotButtonStates now reads from takenNumbers (atomic source of truth)
-      // instead of slotsData (ticket-count-based, which could desync).
+      // FIX 5: applySlotButtonStates now reads from takenNumbers AND disabledNumbers
       function applySlotButtonStates(dateStr, lockedTime) {
-        const amTaken = getTakenCountFromAtomic(dateStr, "AM");
-        const pmTaken = getTakenCountFromAtomic(dateStr, "PM");
+        const amUnavailable = getUnavailableCount(dateStr, "AM");
+        const pmUnavailable = getUnavailableCount(dateStr, "PM");
         const limAm = getLimitAm(),
           limPm = getLimitPm();
-        const aF = amTaken >= limAm,
-          pF = pmTaken >= limPm;
+        const aF = amUnavailable >= limAm,
+          pF = pmUnavailable >= limPm;
         const ba = document.getElementById("btn-am"),
           bp = document.getElementById("btn-pm");
         ba.classList.remove("active", "full");
@@ -1557,11 +1568,11 @@
         ba.style.cursor = "pointer";
         bp.style.cursor = "pointer";
         document.getElementById("tag-am").textContent = aF
-          ? "FULL (" + limAm + "/" + limAm + ")"
-          : amTaken + "/" + limAm + " slots";
+          ? "FULL"
+          : limAm - amUnavailable + "/" + limAm + " slots";
         document.getElementById("tag-pm").textContent = pF
-          ? "FULL (" + limPm + "/" + limPm + ")"
-          : pmTaken + "/" + limPm + " slots";
+          ? "FULL"
+          : limPm - pmUnavailable + "/" + limPm + " slots";
         if (aF) {
           ba.classList.add("full");
           ba.disabled = true;
@@ -1657,33 +1668,33 @@
 
       function renderCard() {
         renderCalendar();
-        const tmr = addDays(now, 1);
+        const targetDate = new Date(targetStr + "T00:00:00");
         document.getElementById("tmr-date-str").textContent =
-          MONTHS[tmr.getMonth()].slice(0, 3) +
+          MONTHS[targetDate.getMonth()].slice(0, 3) +
           " " +
-          tmr.getDate() +
+          targetDate.getDate() +
           ", " +
-          tmr.getFullYear();
-        // FIX 6: Use takenNumbers atomic counts for slot pill display
-        const amTaken = getTakenCountFromAtomic(targetStr, "AM");
-        const pmTaken = getTakenCountFromAtomic(targetStr, "PM");
+          targetDate.getFullYear();
+        // FIX 6: Use takenNumbers AND disabledNumbers for slot pill display
+        const amUnavailable = getUnavailableCount(targetStr, "AM");
+        const pmUnavailable = getUnavailableCount(targetStr, "PM");
         const limAm = getLimitAm(),
           limPm = getLimitPm(),
           limTotal = getLimitTotal();
-        const amLeft = limAm - amTaken,
-          pmLeft = limPm - pmTaken;
-        const allFull = amTaken + pmTaken >= limTotal;
+        const amLeft = limAm - amUnavailable,
+          pmLeft = limPm - pmUnavailable;
+        const allFull = amUnavailable + pmUnavailable >= limTotal;
         document.getElementById("pill-am-count").textContent =
           amLeft > 0 ? amLeft + " left" : "FULL";
         document.getElementById("pill-am-sub").textContent =
-          amTaken + "/" + limAm + " taken";
+          amUnavailable + "/" + limAm + " unavailable";
         document
           .getElementById("pill-am")
           .classList.toggle("full-slot", amLeft <= 0);
         document.getElementById("pill-pm-count").textContent =
           pmLeft > 0 ? pmLeft + " left" : "FULL";
         document.getElementById("pill-pm-sub").textContent =
-          pmTaken + "/" + limPm + " taken";
+          pmUnavailable + "/" + limPm + " unavailable";
         document
           .getElementById("pill-pm")
           .classList.toggle("full-slot", pmLeft <= 0);
@@ -1697,7 +1708,7 @@
           btn.style.display = "none";
           msg.style.display = "block";
           msg.innerHTML =
-            "No distribution on <strong>Friday & Saturday</strong>.<br>Come back on <strong>Sunday</strong>";
+            "No distribution of Numbers on <strong>Friday & Saturday</strong>. Claiming resumes on <strong>Sunday</strong>.";
         } else if (status === "closed") {
           btn.style.display = "none";
           msg.style.display = "block";
@@ -1805,10 +1816,10 @@
 
       function selectTime(t) {
         if (!isClaimingOpen()) return;
-        const amTaken = getTakenCountFromAtomic(targetStr, "AM");
-        const pmTaken = getTakenCountFromAtomic(targetStr, "PM");
-        const aF = amTaken >= getLimitAm(),
-          pF = pmTaken >= getLimitPm();
+        const amUnavailable = getUnavailableCount(targetStr, "AM");
+        const pmUnavailable = getUnavailableCount(targetStr, "PM");
+        const aF = amUnavailable >= getLimitAm(),
+          pF = pmUnavailable >= getLimitPm();
         if (t === "AM" && aF) return;
         if (t === "PM" && pF) return;
         selectedTime = t;
@@ -2301,12 +2312,12 @@
       }
 
       function updateSlotBanner() {
-        const amTaken = getTakenCountFromAtomic(targetStr, "AM");
-        const pmTaken = getTakenCountFromAtomic(targetStr, "PM");
-        const tot = amTaken + pmTaken;
+        const amUnavailable = getUnavailableCount(targetStr, "AM");
+        const pmUnavailable = getUnavailableCount(targetStr, "PM");
+        const tot = amUnavailable + pmUnavailable;
         setBar("total", tot, getLimitTotal());
-        setBar("am", amTaken, getLimitAm());
-        setBar("pm", pmTaken, getLimitPm());
+        setBar("am", amUnavailable, getLimitAm());
+        setBar("pm", pmUnavailable, getLimitPm());
       }
       function setBar(id, used, max) {
         const pct = Math.min((used / max) * 100, 100);
@@ -2448,11 +2459,14 @@
           .join("");
       }
 
+      // FIX 9: Purge tickets right after their distribution window ends.
       async function purgeExpiredTickets() {
         const nowMs = getServerTime().getTime();
-        const del = myTickets.filter(
-          (t) => nowMs > new Date(t.date + "T23:59:59").getTime() + 86400000,
-        );
+        const del = myTickets.filter((t) => {
+          const expDate = new Date(t.date + "T23:59:59").getTime();
+          // Purge tickets from yesterday or earlier.
+          return nowMs > expDate + 1000;
+        });
         if (!del.length) return;
         const ids = new Set(del.map((t) => t.id));
         myTickets = myTickets.filter((t) => !ids.has(t.id));
@@ -2461,7 +2475,7 @@
         renderTickets();
       }
 
-      const RESET_HOUR = 18;
+      const RESET_HOUR = 22; // Move reset to 10 PM to avoid clearing active numbers too early.
       async function dailyReset() {
         const n = getServerTime();
         if (n.getHours() < RESET_HOUR) return;
@@ -2469,7 +2483,7 @@
         if (localStorage.getItem("pq_last_reset") === resetKey) return;
         try {
           const ds = toDateStr(n);
-          // FIX 10: Also clean up takenNumbers for today on daily reset to prevent ghost-blocking
+          // FIX 10: Clear data for today on daily reset to prepare for next opening
           await Promise.all([
             db.ref("slots/" + ds).remove(),
             db.ref("disabledNumbers/" + ds).remove(),
