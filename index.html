@@ -1560,12 +1560,18 @@
         return { start: toDateStr(d), end: toDateStr(end) };
       }
 
-      // FIX 3: Helper — count taken numbers for a session from the atomic takenNumbers node
-      function getTakenCountFromAtomic(dateStr, session) {
-        const dayData = takenNumbersData[dateStr] || {};
-        const nums =
-          session === "AM" ? new Set(getAmNumbers()) : new Set(getPmNumbers());
-        return Object.keys(dayData).filter((n) => nums.has(parseInt(n))).length;
+      // FIX 3: Helper — count unavailable slots (taken OR disabled) for a session
+      function getUnavailableCount(dateStr, session) {
+        const dayTaken = takenNumbersData[dateStr] || {};
+        const dayDisabled = disabledNumbers[dateStr] || {};
+        const sessionNums =
+          session === "AM" ? getAmNumbers() : getPmNumbers();
+        
+        let count = 0;
+        for (const n of sessionNums) {
+          if (dayTaken[n] || dayDisabled[n]) count++;
+        }
+        return count;
       }
 
       // ── Firebase listeners ────────────────────────────────────────────────────────
@@ -1591,6 +1597,8 @@
 
       db.ref("disabledNumbers").on("value", (s) => {
         disabledNumbers = s.val() || {};
+        renderCard();
+        updateSlotBanner();
         renderTickets();
       });
 
@@ -1673,15 +1681,14 @@
           fmt(scheduleSettings.pmStart) + "–" + fmt(scheduleSettings.pmEnd);
       }
 
-      // FIX 5: applySlotButtonStates now reads from takenNumbers (atomic source of truth)
-      // instead of slotsData (ticket-count-based, which could desync).
+      // FIX 5: applySlotButtonStates now reads from takenNumbers AND disabledNumbers
       function applySlotButtonStates(dateStr, lockedTime) {
-        const amTaken = getTakenCountFromAtomic(dateStr, "AM");
-        const pmTaken = getTakenCountFromAtomic(dateStr, "PM");
+        const amUnavailable = getUnavailableCount(dateStr, "AM");
+        const pmUnavailable = getUnavailableCount(dateStr, "PM");
         const limAm = getLimitAm(),
           limPm = getLimitPm();
-        const aF = amTaken >= limAm,
-          pF = pmTaken >= limPm;
+        const aF = amUnavailable >= limAm,
+          pF = pmUnavailable >= limPm;
         const ba = document.getElementById("btn-am"),
           bp = document.getElementById("btn-pm");
         ba.classList.remove("active", "full");
@@ -1695,11 +1702,11 @@
         ba.style.cursor = "pointer";
         bp.style.cursor = "pointer";
         document.getElementById("tag-am").textContent = aF
-          ? "FULL (" + limAm + "/" + limAm + ")"
-          : amTaken + "/" + limAm + " slots";
+          ? "FULL"
+          : limAm - amUnavailable + "/" + limAm + " slots";
         document.getElementById("tag-pm").textContent = pF
-          ? "FULL (" + limPm + "/" + limPm + ")"
-          : pmTaken + "/" + limPm + " slots";
+          ? "FULL"
+          : limPm - pmUnavailable + "/" + limPm + " slots";
         if (aF) {
           ba.classList.add("full");
           ba.disabled = true;
@@ -1802,26 +1809,26 @@
           targetDate.getDate() +
           ", " +
           targetDate.getFullYear();
-        // FIX 6: Use takenNumbers atomic counts for slot pill display
-        const amTaken = getTakenCountFromAtomic(targetStr, "AM");
-        const pmTaken = getTakenCountFromAtomic(targetStr, "PM");
+        // FIX 6: Use takenNumbers AND disabledNumbers for slot pill display
+        const amUnavailable = getUnavailableCount(targetStr, "AM");
+        const pmUnavailable = getUnavailableCount(targetStr, "PM");
         const limAm = getLimitAm(),
           limPm = getLimitPm(),
           limTotal = getLimitTotal();
-        const amLeft = limAm - amTaken,
-          pmLeft = limPm - pmTaken;
-        const allFull = amTaken + pmTaken >= limTotal;
+        const amLeft = limAm - amUnavailable,
+          pmLeft = limPm - pmUnavailable;
+        const allFull = amUnavailable + pmUnavailable >= limTotal;
         document.getElementById("pill-am-count").textContent =
           amLeft > 0 ? amLeft + " left" : "FULL";
         document.getElementById("pill-am-sub").textContent =
-          amTaken + "/" + limAm + " taken";
+          amUnavailable + "/" + limAm + " unavailable";
         document
           .getElementById("pill-am")
           .classList.toggle("full-slot", amLeft <= 0);
         document.getElementById("pill-pm-count").textContent =
           pmLeft > 0 ? pmLeft + " left" : "FULL";
         document.getElementById("pill-pm-sub").textContent =
-          pmTaken + "/" + limPm + " taken";
+          pmUnavailable + "/" + limPm + " unavailable";
         document
           .getElementById("pill-pm")
           .classList.toggle("full-slot", pmLeft <= 0);
@@ -1943,10 +1950,10 @@
 
       function selectTime(t) {
         if (!isClaimingOpen()) return;
-        const amTaken = getTakenCountFromAtomic(targetStr, "AM");
-        const pmTaken = getTakenCountFromAtomic(targetStr, "PM");
-        const aF = amTaken >= getLimitAm(),
-          pF = pmTaken >= getLimitPm();
+        const amUnavailable = getUnavailableCount(targetStr, "AM");
+        const pmUnavailable = getUnavailableCount(targetStr, "PM");
+        const aF = amUnavailable >= getLimitAm(),
+          pF = pmUnavailable >= getLimitPm();
         if (t === "AM" && aF) return;
         if (t === "PM" && pF) return;
         selectedTime = t;
@@ -2440,12 +2447,12 @@
       }
 
       function updateSlotBanner() {
-        const amTaken = getTakenCountFromAtomic(targetStr, "AM");
-        const pmTaken = getTakenCountFromAtomic(targetStr, "PM");
-        const tot = amTaken + pmTaken;
+        const amUnavailable = getUnavailableCount(targetStr, "AM");
+        const pmUnavailable = getUnavailableCount(targetStr, "PM");
+        const tot = amUnavailable + pmUnavailable;
         setBar("total", tot, getLimitTotal());
-        setBar("am", amTaken, getLimitAm());
-        setBar("pm", pmTaken, getLimitPm());
+        setBar("am", amUnavailable, getLimitAm());
+        setBar("pm", pmUnavailable, getLimitPm());
       }
       function setBar(id, used, max) {
         const pct = Math.min((used / max) * 100, 100);
