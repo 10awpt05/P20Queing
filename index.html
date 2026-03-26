@@ -11,142 +11,42 @@
     <link rel="stylesheet" href="home.css" />
   </head>
   <body>
+
     <div class="loading-overlay" id="time-sync-overlay">
       <div class="spinner"></div>
       <div class="loading-text">Synchronizing Server Time...</div>
     </div>
 
     <!-- Welcome / Beta Notice Popup -->
-    <div
-      id="welcome-overlay"
-      style="
-        display: flex;
-        position: fixed;
-        inset: 0;
-        background: rgba(0, 0, 0, 0.6);
-        z-index: 2000;
-        align-items: center;
-        justify-content: center;
-        padding: 16px;
-        backdrop-filter: blur(3px);
-      "
-    >
-      <div
-        style="
-          background: #fff;
-          border-radius: 20px;
-          width: 100%;
-          max-width: 400px;
-          box-shadow: 0 24px 60px rgba(0, 0, 0, 0.25);
-          overflow: hidden;
-          animation: slideUp 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-        "
-      >
-        <div
-          style="
-            background: linear-gradient(135deg, #1e3a5f, #2563eb);
-            padding: 20px 20px 16px;
-            display: flex;
-            align-items: center;
-            gap: 12px;
-          "
-        >
-          <div style="font-size: 28px; line-height: 1">🎫</div>
-          <div>
-            <div
-              style="
-                color: #fff;
-                font-weight: 800;
-                font-size: 15px;
-                font-family: Nunito, sans-serif;
-              "
-            >
-              P20 DDN Control Number System
-            </div>
-            <div
-              style="
-                color: rgba(255, 255, 255, 0.65);
-                font-size: 12px;
-                margin-top: 2px;
-              "
-            >
-              Version 2.0 — Beta Phase
-            </div>
-          </div>
-        </div>
-        <div style="padding: 20px">
-          <div
-            style="
-              background: #fffbeb;
-              border: 1px solid #fde68a;
-              border-radius: 10px;
-              padding: 10px 14px;
-              margin-bottom: 14px;
-              display: flex;
-              gap: 10px;
-              align-items: center;
-            "
-          >
-            <span style="font-size: 16px">⚠️</span>
-            <span
-              style="
-                font-size: 13px;
-                color: #92400e;
-                font-weight: 700;
-                font-family: Nunito, sans-serif;
-              "
-              >PLEASE READ</span
-            >
-          </div>
-          <p
-            style="
-              font-size: 14px;
-              color: #1e293b;
-              line-height: 1.7;
-              margin: 0 0 10px;
-              font-family: Nunito, sans-serif;
-            "
-          >
-            Welcome! This system is currently in its
-            <strong>first phase of deployment</strong>. As with any new system,
-            you may encounter occasional bugs, errors, or unexpected behavior.
-          </p>
-          <p
-            style="
-              font-size: 14px;
-              color: #4b5563;
-              line-height: 1.7;
-              margin: 0 0 18px;
-              font-family: Nunito, sans-serif;
-            "
-          >
-            We kindly ask for your patience and understanding as we continue to
-            improve the system. If you experience any issues, please inform the
-            staff on-site so we can address them promptly. Thank you! 🙏
-          </p>
-          <button
-            onclick="dismissWelcome()"
-            style="
-              width: 100%;
-              padding: 13px;
-              background: linear-gradient(135deg, #1e3a5f, #2563eb);
-              color: #fff;
-              border: none;
-              border-radius: 12px;
-              font-size: 15px;
-              font-weight: 800;
-              cursor: pointer;
-              font-family: Nunito, sans-serif;
-              transition: opacity 0.15s;
-            "
-            onmouseover="this.style.opacity = '0.88'"
-            onmouseout="this.style.opacity = '1'"
-          >
-            I Understand — Continue
-          </button>
-        </div>
+<div id="welcome-overlay" style="display:flex; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:2000; align-items:center; justify-content:center; padding:16px; backdrop-filter:blur(3px);">
+  <div style="background:#fff; border-radius:20px; width:100%; max-width:400px; box-shadow:0 24px 60px rgba(0,0,0,0.25); overflow:hidden; animation:slideUp 0.25s cubic-bezier(0.4,0,0.2,1);">
+    <div style="background:linear-gradient(135deg,#1e3a5f,#2563eb); padding:20px 20px 16px; display:flex; align-items:center; gap:12px;">
+      <div style="font-size:28px; line-height:1;">🎫</div>
+      <div>
+        <div style="color:#fff; font-weight:800; font-size:15px; font-family:Nunito,sans-serif;">P20 DDN Control Number System</div>
+        <div style="color:rgba(255,255,255,0.65); font-size:12px; margin-top:2px;">Version 2.0 — Beta Phase</div>
       </div>
     </div>
+    <div style="padding:20px;">
+      <div style="background:#fffbeb; border:1px solid #fde68a; border-radius:10px; padding:10px 14px; margin-bottom:14px; display:flex; gap:10px; align-items:center;">
+        <span style="font-size:16px;">⚠️</span>
+        <span style="font-size:13px; color:#92400e; font-weight:700; font-family:Nunito,sans-serif;">PLEASE READ</span>
+      </div>
+      <p style="font-size:14px; color:#1e293b; line-height:1.7; margin:0 0 10px; font-family:Nunito,sans-serif;">
+        Welcome! This system is currently in its <strong>first phase of deployment</strong>. As with any new system, you may encounter occasional bugs, errors, or unexpected behavior.
+      </p>
+      <p style="font-size:14px; color:#4b5563; line-height:1.7; margin:0 0 18px; font-family:Nunito,sans-serif;">
+        We kindly ask for your patience and understanding as we continue to improve the system. If you experience any issues, please inform the staff on-site so we can address them promptly. Thank you! 🙏
+      </p>
+      <button onclick="dismissWelcome()" style="width:100%; padding:13px; background:linear-gradient(135deg,#1e3a5f,#2563eb); color:#fff; border:none; border-radius:12px; font-size:15px; font-weight:800; cursor:pointer; font-family:Nunito,sans-serif; transition:opacity 0.15s;" onmouseover="this.style.opacity='0.88'" onmouseout="this.style.opacity='1'">
+        I Understand — Continue
+      </button>
+    </div>
+  </div>
+</div>
+
+
+
 
     <div class="header">
       <div class="header-inner">
@@ -154,7 +54,7 @@
           <h1
             id="header-title"
             onclick="handleTitleTap()"
-            style="cursor: pointer; user-select: none; pointer-events: auto"
+            style="cursor: pointer; user-select: none; pointer-events: auto;"
             data-i18n="appTitle"
           >
             P20 DDN CONTROL NUMBER
@@ -1013,42 +913,18 @@
         opacity: 0.9;
       }
       .loading-overlay {
-        position: fixed;
-        inset: 0;
-        background: #fff;
-        z-index: 9999;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        transition:
-          opacity 0.3s,
-          visibility 0.3s;
+        position: fixed; inset: 0; background: #fff; z-index: 9999;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        transition: opacity .3s, visibility .3s;
       }
-      .loading-overlay.hide {
-        opacity: 0;
-        visibility: hidden;
-        pointer-events: none;
-      }
+      .loading-overlay.hide { opacity: 0; visibility: hidden; pointer-events: none; }
       .spinner {
-        width: 40px;
-        height: 40px;
-        border: 4px solid #f3f4f6;
-        border-top: 4px solid #2563eb;
-        border-radius: 50%;
-        animation: spin 1s linear infinite;
-        margin-bottom: 16px;
+        width: 40px; height: 40px; border: 4px solid #f3f4f6;
+        border-top: 4px solid #2563eb; border-radius: 50%;
+        animation: spin 1s linear infinite; margin-bottom: 16px;
       }
-      @keyframes spin {
-        to {
-          transform: rotate(360deg);
-        }
-      }
-      .loading-text {
-        font-size: 15px;
-        font-weight: 700;
-        color: #1e3a5f;
-      }
+      @keyframes spin { to { transform: rotate(360deg); } }
+      .loading-text { font-size: 15px; font-weight: 700; color: #1e3a5f; }
     </style>
 
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
@@ -1062,14 +938,13 @@
         storageBucket: "fti-queue.firebasestorage.app",
         messagingSenderId: "794859488896",
         appId: "1:794859488896:web:4e7dcb7e830fc4bf334865",
-        measurementId: "G-HSTB5FR8G9",
+        measurementId: "G-HSTB5FR8G9"
       };
       firebase.initializeApp(firebaseConfig);
       const db = firebase.database();
 
       // ─── ADMIN REDIRECT LOGIC ────────────────────────────────────────────────────
-      let tapCount = 0,
-        tapTimer = null;
+      let tapCount = 0, tapTimer = null;
       function handleTitleTap() {
         tapCount++;
         if (tapTimer) clearTimeout(tapTimer);
@@ -1084,9 +959,7 @@
         const titleEl = document.getElementById("header-title");
         titleEl.style.opacity = ".6";
         setTimeout(() => (titleEl.style.opacity = "1"), 120);
-        tapTimer = setTimeout(() => {
-          tapCount = 0;
-        }, 3000);
+        tapTimer = setTimeout(() => { tapCount = 0; }, 3000);
       }
 
       // Synchronize with Firebase Server Time to prevent device time bypass
@@ -1106,35 +979,28 @@
       }
 
       function trackPresence() {
-        const presenceRef = db.ref(
-          "presence/" +
-            (localStorage.getItem("pq_device_id") ||
-              Math.random().toString(36).substring(2) + Date.now()),
-        );
-        if (!localStorage.getItem("pq_device_id"))
-          localStorage.setItem("pq_device_id", presenceRef.key);
-
+        const presenceRef = db.ref("presence/" + (localStorage.getItem("pq_device_id") || (Math.random().toString(36).substring(2) + Date.now())));
+        if (!localStorage.getItem("pq_device_id")) localStorage.setItem("pq_device_id", presenceRef.key);
+        
         db.ref(".info/connected").on("value", (snap) => {
           if (snap.val() === true) {
             presenceRef.onDisconnect().remove();
             presenceRef.set({
               lastActive: firebase.database.ServerValue.TIMESTAMP,
-              ua: navigator.userAgent,
+              ua: navigator.userAgent
             });
           }
         });
       }
 
       async function trackVisitor() {
-        const vid =
-          localStorage.getItem("pq_visitor_id") ||
-          Math.random().toString(36).substring(2) + Date.now();
+        const vid = localStorage.getItem("pq_visitor_id") || (Math.random().toString(36).substring(2) + Date.now());
         if (!localStorage.getItem("pq_visitor_id")) {
           localStorage.setItem("pq_visitor_id", vid);
           const visitorRef = db.ref("visitors/" + vid);
           await visitorRef.set({
             firstVisit: firebase.database.ServerValue.TIMESTAMP,
-            ua: navigator.userAgent,
+            ua: navigator.userAgent
           });
         }
       }
@@ -1153,10 +1019,10 @@
         document.getElementById("time-sync-overlay").classList.add("hide");
 
         // Welcome popup check (wait for server time)
-        const welcomeKey = "pq_welcome_seen";
+        const welcomeKey = 'pq_welcome_seen';
         const welcomeToday = now.toISOString().slice(0, 10);
         if (localStorage.getItem(welcomeKey) === welcomeToday) {
-          document.getElementById("welcome-overlay").style.display = "none";
+          document.getElementById('welcome-overlay').style.display = 'none';
         }
 
         // Initial renders
@@ -1243,18 +1109,14 @@
       // Friday (5) → skip Sat+Sun → Monday (+3)
       // Saturday (6) → skip Sun → Monday (+2)
       // All other days → tomorrow (+1)
-      // FIX 1: getTargetDate always returns the next valid distribution day.
-      // - Monday to Wednesday -> targets Tuesday to Thursday (+1)
-      // - Thursday -> targets Friday (+1)
-      // - Friday to Sunday -> targets Monday (+3, +2, +1 respectively)
       function getTargetDate(from) {
         const d = from || getServerTime();
-        const day = d.getDay(); // 0=Sun, 1=Mon, ..., 4=Thu, 5=Fri, 6=Sat
-        if (day >= 1 && day <= 4) return addDays(d, 1); // Mon-Thu -> Tue-Fri
-        if (day === 5) return addDays(d, 3); // Fri -> Mon
-        if (day === 6) return addDays(d, 2); // Sat -> Mon
-        if (day === 0) return addDays(d, 1); // Sun -> Mon
-        return addDays(d, 1);
+        const day = d.getDay();
+        let offset = 1;
+        if (day === 4) offset = 3; // Thursday → Sunday
+        if (day === 5) offset = 3; // Friday → Monday
+        if (day === 6) offset = 2; // Saturday → Monday
+        return addDays(d, offset);
       }
 
       let selectedTime = null;
@@ -1560,18 +1422,12 @@
         return { start: toDateStr(d), end: toDateStr(end) };
       }
 
-      // FIX 3: Helper — count unavailable slots (taken OR disabled) for a session
-      function getUnavailableCount(dateStr, session) {
-        const dayTaken = takenNumbersData[dateStr] || {};
-        const dayDisabled = disabledNumbers[dateStr] || {};
-        const sessionNums =
-          session === "AM" ? getAmNumbers() : getPmNumbers();
-        
-        let count = 0;
-        for (const n of sessionNums) {
-          if (dayTaken[n] || dayDisabled[n]) count++;
-        }
-        return count;
+      // FIX 3: Helper — count taken numbers for a session from the atomic takenNumbers node
+      function getTakenCountFromAtomic(dateStr, session) {
+        const dayData = takenNumbersData[dateStr] || {};
+        const nums =
+          session === "AM" ? new Set(getAmNumbers()) : new Set(getPmNumbers());
+        return Object.keys(dayData).filter((n) => nums.has(parseInt(n))).length;
       }
 
       // ── Firebase listeners ────────────────────────────────────────────────────────
@@ -1597,8 +1453,6 @@
 
       db.ref("disabledNumbers").on("value", (s) => {
         disabledNumbers = s.val() || {};
-        renderCard();
-        updateSlotBanner();
         renderTickets();
       });
 
@@ -1681,14 +1535,15 @@
           fmt(scheduleSettings.pmStart) + "–" + fmt(scheduleSettings.pmEnd);
       }
 
-      // FIX 5: applySlotButtonStates now reads from takenNumbers AND disabledNumbers
+      // FIX 5: applySlotButtonStates now reads from takenNumbers (atomic source of truth)
+      // instead of slotsData (ticket-count-based, which could desync).
       function applySlotButtonStates(dateStr, lockedTime) {
-        const amUnavailable = getUnavailableCount(dateStr, "AM");
-        const pmUnavailable = getUnavailableCount(dateStr, "PM");
+        const amTaken = getTakenCountFromAtomic(dateStr, "AM");
+        const pmTaken = getTakenCountFromAtomic(dateStr, "PM");
         const limAm = getLimitAm(),
           limPm = getLimitPm();
-        const aF = amUnavailable >= limAm,
-          pF = pmUnavailable >= limPm;
+        const aF = amTaken >= limAm,
+          pF = pmTaken >= limPm;
         const ba = document.getElementById("btn-am"),
           bp = document.getElementById("btn-pm");
         ba.classList.remove("active", "full");
@@ -1702,11 +1557,11 @@
         ba.style.cursor = "pointer";
         bp.style.cursor = "pointer";
         document.getElementById("tag-am").textContent = aF
-          ? "FULL"
-          : limAm - amUnavailable + "/" + limAm + " slots";
+          ? "FULL (" + limAm + "/" + limAm + ")"
+          : amTaken + "/" + limAm + " slots";
         document.getElementById("tag-pm").textContent = pF
-          ? "FULL"
-          : limPm - pmUnavailable + "/" + limPm + " slots";
+          ? "FULL (" + limPm + "/" + limPm + ")"
+          : pmTaken + "/" + limPm + " slots";
         if (aF) {
           ba.classList.add("full");
           ba.disabled = true;
@@ -1802,33 +1657,33 @@
 
       function renderCard() {
         renderCalendar();
-        const targetDate = new Date(targetStr + "T00:00:00");
+        const tmr = addDays(now, 1);
         document.getElementById("tmr-date-str").textContent =
-          MONTHS[targetDate.getMonth()].slice(0, 3) +
+          MONTHS[tmr.getMonth()].slice(0, 3) +
           " " +
-          targetDate.getDate() +
+          tmr.getDate() +
           ", " +
-          targetDate.getFullYear();
-        // FIX 6: Use takenNumbers AND disabledNumbers for slot pill display
-        const amUnavailable = getUnavailableCount(targetStr, "AM");
-        const pmUnavailable = getUnavailableCount(targetStr, "PM");
+          tmr.getFullYear();
+        // FIX 6: Use takenNumbers atomic counts for slot pill display
+        const amTaken = getTakenCountFromAtomic(targetStr, "AM");
+        const pmTaken = getTakenCountFromAtomic(targetStr, "PM");
         const limAm = getLimitAm(),
           limPm = getLimitPm(),
           limTotal = getLimitTotal();
-        const amLeft = limAm - amUnavailable,
-          pmLeft = limPm - pmUnavailable;
-        const allFull = amUnavailable + pmUnavailable >= limTotal;
+        const amLeft = limAm - amTaken,
+          pmLeft = limPm - pmTaken;
+        const allFull = amTaken + pmTaken >= limTotal;
         document.getElementById("pill-am-count").textContent =
           amLeft > 0 ? amLeft + " left" : "FULL";
         document.getElementById("pill-am-sub").textContent =
-          amUnavailable + "/" + limAm + " unavailable";
+          amTaken + "/" + limAm + " taken";
         document
           .getElementById("pill-am")
           .classList.toggle("full-slot", amLeft <= 0);
         document.getElementById("pill-pm-count").textContent =
           pmLeft > 0 ? pmLeft + " left" : "FULL";
         document.getElementById("pill-pm-sub").textContent =
-          pmUnavailable + "/" + limPm + " unavailable";
+          pmTaken + "/" + limPm + " taken";
         document
           .getElementById("pill-pm")
           .classList.toggle("full-slot", pmLeft <= 0);
@@ -1910,16 +1765,16 @@
         editingTicketId = null;
         document.getElementById("btn-generate").textContent =
           "Generate Control Number";
-        const targetDate = new Date(targetStr + "T00:00:00");
+        const tmr = addDays(now, 1);
         document.getElementById("form-date-label").textContent =
           "For: " +
-          DAYS[targetDate.getDay()] +
+          DAYS[tmr.getDay()] +
           ", " +
-          MONTHS[targetDate.getMonth()] +
+          MONTHS[tmr.getMonth()] +
           " " +
-          targetDate.getDate() +
+          tmr.getDate() +
           ", " +
-          targetDate.getFullYear();
+          tmr.getFullYear();
         applySlotButtonStates(targetStr, null);
         const ba = document.getElementById("btn-am"),
           bp = document.getElementById("btn-pm");
@@ -1950,10 +1805,10 @@
 
       function selectTime(t) {
         if (!isClaimingOpen()) return;
-        const amUnavailable = getUnavailableCount(targetStr, "AM");
-        const pmUnavailable = getUnavailableCount(targetStr, "PM");
-        const aF = amUnavailable >= getLimitAm(),
-          pF = pmUnavailable >= getLimitPm();
+        const amTaken = getTakenCountFromAtomic(targetStr, "AM");
+        const pmTaken = getTakenCountFromAtomic(targetStr, "PM");
+        const aF = amTaken >= getLimitAm(),
+          pF = pmTaken >= getLimitPm();
         if (t === "AM" && aF) return;
         if (t === "PM" && pF) return;
         selectedTime = t;
@@ -2162,8 +2017,7 @@
       }
 
       async function generateNumber() {
-        if (!serverTimeSynced)
-          return toast("Waiting for server time synchronization...");
+        if (!serverTimeSynced) return toast("Waiting for server time synchronization...");
         if (!isClaimingOpen()) {
           const s = getClaimingStatus();
           if (s === "blocked")
@@ -2382,9 +2236,10 @@
           const num = assignedNum;
 
           // Write the ticket record
-          const ek = selectedTime === "AM" ? "amEnd" : "pmEnd";
-          const expiryTime = scheduleSettings[ek] || (selectedTime === "AM" ? "12:00" : "17:00");
-          const expiry = new Date(targetStr + "T" + expiryTime + ":00");
+          const tmr = addDays(now, 1);
+          const expiry = new Date(
+            targetStr + "T" + (scheduleSettings.pmEnd || "17:00") + ":00",
+          );
           const td = {
             number: num,
             name,
@@ -2426,14 +2281,13 @@
 
           myTickets.unshift({ id: ref.key, ...td });
           renderTickets();
-          const targetDate = new Date(targetStr + "T00:00:00");
           toast(
             "Control #" +
               pad3(num) +
               " for " +
-              MONTHS[targetDate.getMonth()].slice(0, 3) +
+              MONTHS[tmr.getMonth()].slice(0, 3) +
               " " +
-              targetDate.getDate() +
+              tmr.getDate() +
               "!",
           );
           document.getElementById("form-card").classList.remove("show");
@@ -2447,12 +2301,12 @@
       }
 
       function updateSlotBanner() {
-        const amUnavailable = getUnavailableCount(targetStr, "AM");
-        const pmUnavailable = getUnavailableCount(targetStr, "PM");
-        const tot = amUnavailable + pmUnavailable;
+        const amTaken = getTakenCountFromAtomic(targetStr, "AM");
+        const pmTaken = getTakenCountFromAtomic(targetStr, "PM");
+        const tot = amTaken + pmTaken;
         setBar("total", tot, getLimitTotal());
-        setBar("am", amUnavailable, getLimitAm());
-        setBar("pm", pmUnavailable, getLimitPm());
+        setBar("am", amTaken, getLimitAm());
+        setBar("pm", pmTaken, getLimitPm());
       }
       function setBar(id, used, max) {
         const pct = Math.min((used / max) * 100, 100);
@@ -2594,14 +2448,11 @@
           .join("");
       }
 
-      // FIX 9: Purge tickets right after their distribution window ends.
       async function purgeExpiredTickets() {
         const nowMs = getServerTime().getTime();
-        const del = myTickets.filter((t) => {
-          const expDate = new Date(t.date + "T23:59:59").getTime();
-          // Purge tickets from yesterday or earlier.
-          return nowMs > expDate + 1000;
-        });
+        const del = myTickets.filter(
+          (t) => nowMs > new Date(t.date + "T23:59:59").getTime() + 86400000,
+        );
         if (!del.length) return;
         const ids = new Set(del.map((t) => t.id));
         myTickets = myTickets.filter((t) => !ids.has(t.id));
@@ -2610,7 +2461,7 @@
         renderTickets();
       }
 
-      const RESET_HOUR = 22; // Move reset to 10 PM to avoid clearing active numbers too early.
+      const RESET_HOUR = 18;
       async function dailyReset() {
         const n = getServerTime();
         if (n.getHours() < RESET_HOUR) return;
@@ -2618,8 +2469,7 @@
         if (localStorage.getItem("pq_last_reset") === resetKey) return;
         try {
           const ds = toDateStr(n);
-          // FIX 10: Clear data for *yesterday* on daily reset to prevent data loss for ongoing distributions.
-          // Wait, actually, if it's 10 PM on Thursday, clearing Thursday is correct as Friday is next.
+          // FIX 10: Also clean up takenNumbers for today on daily reset to prevent ghost-blocking
           await Promise.all([
             db.ref("slots/" + ds).remove(),
             db.ref("disabledNumbers/" + ds).remove(),
@@ -2847,10 +2697,10 @@
       applyTranslations();
 
       function dismissWelcome() {
-        const today = getServerTime().toISOString().slice(0, 10);
-        localStorage.setItem("pq_welcome_seen", today);
-        document.getElementById("welcome-overlay").style.display = "none";
-      }
+    const today = getServerTime().toISOString().slice(0, 10);
+    localStorage.setItem('pq_welcome_seen', today);
+    document.getElementById('welcome-overlay').style.display = 'none';
+  }
     </script>
   </body>
 </html>
