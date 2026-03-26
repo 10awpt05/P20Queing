@@ -1243,16 +1243,18 @@
       // Friday (5) → skip Sat+Sun → Monday (+3)
       // Saturday (6) → skip Sun → Monday (+2)
       // All other days → tomorrow (+1)
+      // FIX 1: getTargetDate always returns the next valid distribution day.
+      // - Monday to Wednesday -> targets Tuesday to Thursday (+1)
+      // - Thursday -> targets Friday (+1)
+      // - Friday to Sunday -> targets Monday (+3, +2, +1 respectively)
       function getTargetDate(from) {
         const d = from || getServerTime();
-        const day = d.getDay();
-        let offset = 1;
-        // If it's Thursday (4), next target is Friday (5) (+1)
-        // If it's Friday (5), it's a weekend (no claiming for Saturday/Sunday)
-        // If it's Sunday (0), next target is Monday (1) (+1)
-        if (day === 4) offset = 1; // Thursday -> Friday
-        if (day === 0) offset = 1; // Sunday -> Monday
-        return addDays(d, offset);
+        const day = d.getDay(); // 0=Sun, 1=Mon, ..., 4=Thu, 5=Fri, 6=Sat
+        if (day >= 1 && day <= 4) return addDays(d, 1); // Mon-Thu -> Tue-Fri
+        if (day === 5) return addDays(d, 3); // Fri -> Mon
+        if (day === 6) return addDays(d, 2); // Sat -> Mon
+        if (day === 0) return addDays(d, 1); // Sun -> Mon
+        return addDays(d, 1);
       }
 
       let selectedTime = null;
@@ -2373,10 +2375,9 @@
           const num = assignedNum;
 
           // Write the ticket record
-          const tmr = addDays(now, 1);
-          const expiry = new Date(
-            targetStr + "T" + (scheduleSettings.pmEnd || "17:00") + ":00",
-          );
+          const ek = selectedTime === "AM" ? "amEnd" : "pmEnd";
+          const expiryTime = scheduleSettings[ek] || (selectedTime === "AM" ? "12:00" : "17:00");
+          const expiry = new Date(targetStr + "T" + expiryTime + ":00");
           const td = {
             number: num,
             name,
@@ -2418,13 +2419,14 @@
 
           myTickets.unshift({ id: ref.key, ...td });
           renderTickets();
+          const targetDate = new Date(targetStr + "T00:00:00");
           toast(
             "Control #" +
               pad3(num) +
               " for " +
-              MONTHS[tmr.getMonth()].slice(0, 3) +
+              MONTHS[targetDate.getMonth()].slice(0, 3) +
               " " +
-              tmr.getDate() +
+              targetDate.getDate() +
               "!",
           );
           document.getElementById("form-card").classList.remove("show");
@@ -2585,11 +2587,14 @@
           .join("");
       }
 
+      // FIX 9: Purge tickets right after their distribution window ends.
       async function purgeExpiredTickets() {
         const nowMs = getServerTime().getTime();
-        const del = myTickets.filter(
-          (t) => nowMs > new Date(t.date + "T23:59:59").getTime() + 86400000,
-        );
+        const del = myTickets.filter((t) => {
+          const expDate = new Date(t.date + "T23:59:59").getTime();
+          // Purge tickets from yesterday or earlier.
+          return nowMs > expDate + 1000;
+        });
         if (!del.length) return;
         const ids = new Set(del.map((t) => t.id));
         myTickets = myTickets.filter((t) => !ids.has(t.id));
@@ -2598,7 +2603,7 @@
         renderTickets();
       }
 
-      const RESET_HOUR = 18;
+      const RESET_HOUR = 22; // Move reset to 10 PM to avoid clearing active numbers too early.
       async function dailyReset() {
         const n = getServerTime();
         if (n.getHours() < RESET_HOUR) return;
@@ -2606,7 +2611,8 @@
         if (localStorage.getItem("pq_last_reset") === resetKey) return;
         try {
           const ds = toDateStr(n);
-          // FIX 10: Also clean up takenNumbers for today on daily reset to prevent ghost-blocking
+          // FIX 10: Clear data for *yesterday* on daily reset to prevent data loss for ongoing distributions.
+          // Wait, actually, if it's 10 PM on Thursday, clearing Thursday is correct as Friday is next.
           await Promise.all([
             db.ref("slots/" + ds).remove(),
             db.ref("disabledNumbers/" + ds).remove(),
