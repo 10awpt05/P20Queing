@@ -320,7 +320,6 @@
     measurementId: "G-8HECLBGH1M"
   };
   const db = firebase.database();
-
   function today() { return new Date().toISOString().slice(0, 10); }
   function fmtTime(ts) { return new Date(ts).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }); }
   function estimateBytes(val) {
