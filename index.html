@@ -1189,6 +1189,7 @@ async function checkMonthlyLimitByID(idTypeField, idNumField, idType, idNum, lim
         myTicketIds = JSON.parse(
           localStorage.getItem("pq_my_ticket_ids") || "[]",
         );
+        let ticketsLoading = true;
 
       let scheduleSettings = {
         claimStart: "06:00",
@@ -1504,6 +1505,10 @@ async function checkMonthlyLimitByID(idTypeField, idNumField, idType, idNum, lim
         updateSlotBanner();
         applySlotButtonStates(targetStr, selectedTime);
         updateFormWindowTags();
+
+          // Clear selectedTime if its session just got disabled by admin
+        if (selectedTime === 'AM' && slotConfig.amEnabled === false) selectedTime = null;
+        if (selectedTime === 'PM' && slotConfig.pmEnabled === false) selectedTime = null;
       });
 
       db.ref("scheduleSettings").on("value", (s) => {
@@ -1536,15 +1541,31 @@ async function checkMonthlyLimitByID(idTypeField, idNumField, idType, idNum, lim
               targetStr
             : targetStr;
           applySlotButtonStates(editDate, selectedTime);
+
+          // Clear selectedTime if its session just became unavailable
+        const amNowFull = getTakenCountFromAtomic(editDate, 'AM') >= getLimitAm() || slotConfig.amEnabled === false;
+        const pmNowFull = getTakenCountFromAtomic(editDate, 'PM') >= getLimitPm() || slotConfig.pmEnabled === false;
+        if (selectedTime === 'AM' && amNowFull) selectedTime = null;
+        if (selectedTime === 'PM' && pmNowFull) selectedTime = null;
         }
       });
 
       async function loadMyTickets() {
+
+        // Show loading state immediately
+      document.getElementById("tickets-list").innerHTML = `
+        <div class="tickets-loading">
+          <div class="tickets-spinner"></div>
+          <div class="tickets-loading-text">Loading your numbers...</div>
+        </div>
+      `;
+
         myTickets = [];
         for (const id of myTicketIds) {
           const s = await db.ref("tickets/" + id).once("value");
           if (s.exists()) myTickets.push({ id, ...s.val() });
         }
+        ticketsLoading = false; // ← add this line
         renderTickets();
       }
       loadMyTickets();
@@ -1742,11 +1763,11 @@ async function checkMonthlyLimitByID(idTypeField, idNumField, idType, idNum, lim
         const amUnavailable = amTaken >= limAm || amDisabled;
         const pmUnavailable = pmTaken >= limPm || pmDisabled;
         const allUnavailable = amUnavailable && pmUnavailable;
-        document.getElementById('pill-am-count').textContent = amDisabled ? 'OFF' : amLeft > 0 ? amLeft + ' left' : 'FULL';
+        document.getElementById('pill-am-count').textContent = amDisabled ? 'Closed' : amLeft > 0 ? amLeft + ' left' : 'FULL';
         document.getElementById('pill-am-sub').textContent   = amDisabled ? 'Session disabled' : amTaken + '/' + limAm + ' taken';
         document.getElementById('pill-am').classList.toggle('full-slot', amLeft <= 0 || amDisabled);
 
-        document.getElementById('pill-pm-count').textContent = pmDisabled ? 'OFF' : pmLeft > 0 ? pmLeft + ' left' : 'FULL';
+        document.getElementById('pill-pm-count').textContent = pmDisabled ? 'Closed' : pmLeft > 0 ? pmLeft + ' left' : 'FULL';
         document.getElementById('pill-pm-sub').textContent   = pmDisabled ? 'Session disabled' : pmTaken + '/' + limPm + ' taken';
         document.getElementById('pill-pm').classList.toggle('full-slot', pmLeft <= 0 || pmDisabled);
         const btn = document.getElementById("btn-get-number");
@@ -1789,6 +1810,8 @@ async function checkMonthlyLimitByID(idTypeField, idNumField, idType, idNum, lim
           btn.textContent = "Get My Control Number";
           btn.classList.remove("full-btn");
           msg.style.display = "none";
+          document.querySelector(".today-status-row").style.display = "";
+          document.querySelector(".tmr-notice").style.display = "";
         }
       }
 
@@ -2167,6 +2190,21 @@ async function checkMonthlyLimitByID(idTypeField, idNumField, idType, idNum, lim
 
         const btn = document.getElementById("btn-generate");
         const isEditing = !!editingTicketId;
+
+        // ── GUARD: Re-validate selected session is still enabled and has slots ───────
+        if (selectedTime === 'AM' && slotConfig.amEnabled === false) {
+          return toast('⛔ AM session has been disabled. Please refresh.');
+        }
+        if (selectedTime === 'PM' && slotConfig.pmEnabled === false) {
+          return toast('⛔ PM session has been disabled. Please refresh.');
+        }
+        const _amTakenGuard = getTakenCountFromAtomic(targetStr, 'AM');
+        const _pmTakenGuard = getTakenCountFromAtomic(targetStr, 'PM');
+        if (selectedTime === 'AM' && _amTakenGuard >= getLimitAm())
+          return toast('⛔ AM slots just filled up. Please try PM.');
+        if (selectedTime === 'PM' && _pmTakenGuard >= getLimitPm())
+          return toast('⛔ PM slots just filled up. Please try AM.');
+
         btn.disabled = true;
         btn.textContent = "Checking...";
 
@@ -2467,6 +2505,7 @@ async function checkMonthlyLimitByID(idTypeField, idNumField, idType, idNum, lim
       }
 
       function renderTickets() {
+        if (ticketsLoading) return;
         const list = document.getElementById("tickets-list");
         if (!myTickets.length) {
           list.innerHTML =
