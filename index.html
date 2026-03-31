@@ -1005,6 +1005,68 @@
         }
       }
 
+      async function checkMonthlyLimitByName(field, value, limitCount) {
+  if (!value || value.trim().length < 2 || !limitCount || limitCount === 0) return null;
+  const normVal = value.trim().toLowerCase();
+  const snap = await db.ref('tickets').once('value');
+  if (!snap.exists()) return null;
+ 
+  // Rolling 30-day window: 29 days back from targetStr (30 days inclusive)
+  const targetDate = new Date(targetStr + 'T00:00:00');
+  const windowStart = new Date(targetDate);
+  windowStart.setDate(windowStart.getDate() - 29);
+  const windowStartStr = toDateStr(windowStart);
+ 
+  let count = 0;
+  let lastFound = null;
+  snap.forEach(c => {
+    const t = c.val();
+    if (!t || !t.date) return;
+    if (t.date < windowStartStr || t.date > targetStr) return;
+    if (editingTicketId && c.key === editingTicketId) return;
+    const fieldVal = t[field];
+    if (fieldVal && fieldVal.trim().toLowerCase() === normVal) {
+      count++;
+      lastFound = { id: c.key, ...t };
+    }
+  });
+ 
+  return count >= limitCount ? { count, lastFound, limitCount } : null;
+}
+ 
+// Checks monthly limit by ID type+number pair across idType/idNumber or idType2/idNumber2
+async function checkMonthlyLimitByID(idTypeField, idNumField, idType, idNum, limitCount) {
+  if (!idType || !idNum || !limitCount || limitCount === 0) return null;
+  const normType = idType.trim().toLowerCase();
+  const normNum  = idNum.trim().toLowerCase();
+  const snap = await db.ref('tickets').once('value');
+  if (!snap.exists()) return null;
+ 
+  const targetDate = new Date(targetStr + 'T00:00:00');
+  const windowStart = new Date(targetDate);
+  windowStart.setDate(windowStart.getDate() - 29);
+  const windowStartStr = toDateStr(windowStart);
+ 
+  let count = 0;
+  let lastFound = null;
+  snap.forEach(c => {
+    const t = c.val();
+    if (!t || !t.date) return;
+    if (t.date < windowStartStr || t.date > targetStr) return;
+    if (editingTicketId && c.key === editingTicketId) return;
+    const tType = t[idTypeField];
+    const tNum  = t[idNumField];
+    if (tType && tNum &&
+        tType.trim().toLowerCase() === normType &&
+        tNum.trim().toLowerCase()  === normNum) {
+      count++;
+      lastFound = { id: c.key, ...t };
+    }
+  });
+ 
+  return count >= limitCount ? { count, lastFound, limitCount } : null;
+}
+
       function initializeAfterSync() {
         // Only initialize these once we have accurate server time
         now = getServerTime();
@@ -1948,77 +2010,75 @@
         return found;
       }
 
-      function showErrorCard(
-        dupTicket,
-        idNumber,
-        benName,
-        idType,
-        beneficiaryLabel,
-        matchType,
-      ) {
-        const ticketDate = new Date(dupTicket.date + "T00:00:00");
-        const nextAvail = new Date(ticketDate);
-        nextAvail.setDate(ticketDate.getDate() + 7);
-        const nextMonStr =
-          MONTHS[nextAvail.getMonth()] +
-          " " +
-          nextAvail.getDate() +
-          ", " +
-          nextAvail.getFullYear();
-        const claimedDate = new Date(dupTicket.date + "T00:00:00");
-        const claimedDateStr =
-          DAYS[claimedDate.getDay()] +
-          ", " +
-          MONTHS[claimedDate.getMonth()] +
-          " " +
-          claimedDate.getDate() +
-          ", " +
-          claimedDate.getFullYear();
-        const isNameMatch = matchType === "name";
-        const norm = idNumber ? idNumber.trim().toLowerCase() : "";
-        const isSlot2 =
-          !isNameMatch &&
-          dupTicket.idNumber2 &&
-          dupTicket.idNumber2.trim().toLowerCase() === norm;
-        document.getElementById("error-card-icon").textContent = isNameMatch
-          ? "⚠️"
-          : "🚫";
-        document.getElementById("error-card-title").textContent = isNameMatch
-          ? "Already Claimed This Week"
-          : "7-Day Cooldown Active";
-        document.getElementById("error-card-subtitle").textContent = isNameMatch
-          ? beneficiaryLabel +
-            " name already has a registered control number this week."
-          : beneficiaryLabel +
-            " ID was used within the last 7 days. Please wait before claiming again.";
-        document.getElementById("error-card-ben-name").textContent = isNameMatch
-          ? benName
-          : isSlot2
-            ? dupTicket.ben2Name || "—"
-            : dupTicket.ben1Name || "—";
-        document.getElementById("error-card-id-type").textContent = isNameMatch
-          ? (dupTicket.matchedSlot === 2
-              ? dupTicket.idType2
-              : dupTicket.idType) || "—"
-          : idType || "—";
-        document.getElementById("error-card-id").textContent = isNameMatch
-          ? (dupTicket.matchedSlot === 2
-              ? dupTicket.idNumber2
-              : dupTicket.idNumber) || "—"
-          : idNumber;
-        document.getElementById("error-card-name").textContent =
-          dupTicket.name || dupTicket.ben1Name || "—";
-        document.getElementById("error-card-date").textContent =
-          claimedDateStr + " (" + dupTicket.time + " slot)";
-        document.getElementById("error-card-next").textContent =
-          "Next available claim : " + nextMonStr;
-        document.getElementById("error-card").classList.add("show");
-        document.getElementById("form-card").classList.remove("show");
-        document.getElementById("slot-banner").classList.remove("show");
-        document
-          .getElementById("error-card")
-          .scrollIntoView({ behavior: "smooth", block: "nearest" });
+      function showErrorCard(dupTicket, idNumber, benName, idType, beneficiaryLabel, matchType, extraInfo) {
+      const ticketDate = new Date(dupTicket.date + 'T00:00:00');
+      const nextAvail  = new Date(ticketDate);
+      nextAvail.setDate(ticketDate.getDate() + 7);
+      const nextMonStr = MONTHS[nextAvail.getMonth()] + ' ' + nextAvail.getDate() + ', ' + nextAvail.getFullYear();
+      const claimedDate    = new Date(dupTicket.date + 'T00:00:00');
+      const claimedDateStr = DAYS[claimedDate.getDay()] + ', ' +
+        MONTHS[claimedDate.getMonth()] + ' ' + claimedDate.getDate() + ', ' + claimedDate.getFullYear();
+
+      const isMonthly   = matchType === 'monthly';
+      const isNameMatch = matchType === 'name';
+      const norm = idNumber ? idNumber.trim().toLowerCase() : '';
+      const isSlot2 = !isNameMatch && !isMonthly &&
+        dupTicket.idNumber2 && dupTicket.idNumber2.trim().toLowerCase() === norm;
+
+      // ── Resolve which slot the match came from ──────────────────────────────────
+      // For monthly hits triggered by name: idType/idNumber args are '' — pull from dupTicket instead
+      let resolvedIdType, resolvedIdNumber, resolvedBenName;
+
+      if (isMonthly) {
+        // Was the monthly match on ben2 or ben1?
+        const matchedOnBen2 = benName && dupTicket.ben2Name &&
+          dupTicket.ben2Name.trim().toLowerCase() === benName.trim().toLowerCase();
+        resolvedBenName   = benName || dupTicket.ben1Name || '—';
+        resolvedIdType    = idType || (matchedOnBen2 ? dupTicket.idType2 : dupTicket.idType) || '—';
+        resolvedIdNumber  = idNumber || (matchedOnBen2 ? dupTicket.idNumber2 : dupTicket.idNumber) || '—';
+      } else if (isNameMatch) {
+        resolvedBenName   = benName;
+        resolvedIdType    = (dupTicket.matchedSlot === 2 ? dupTicket.idType2 : dupTicket.idType) || '—';
+        resolvedIdNumber  = (dupTicket.matchedSlot === 2 ? dupTicket.idNumber2 : dupTicket.idNumber) || '—';
+      } else {
+        resolvedBenName   = isSlot2 ? dupTicket.ben2Name || '—' : dupTicket.ben1Name || '—';
+        resolvedIdType    = idType || '—';
+        resolvedIdNumber  = idNumber || '—';
       }
+
+      document.getElementById('error-card-icon').textContent     = isMonthly ? '📅' : isNameMatch ? '⚠️' : '🚫';
+      document.getElementById('error-card-title').textContent    = isMonthly
+        ? 'Monthly Claim Limit Reached'
+        : isNameMatch ? 'Already Claimed This Week' : '7-Day Cooldown Active';
+      document.getElementById('error-card-subtitle').textContent = isMonthly
+        ? beneficiaryLabel + ' has already been claimed ' +
+          (extraInfo ? extraInfo.count : '') + ' time(s) this month (limit: ' +
+          (extraInfo ? extraInfo.limitCount : '') + ' per 30 days).'
+        : isNameMatch
+          ? beneficiaryLabel + ' name already has a registered control number this week.'
+          : beneficiaryLabel + ' ID was used within the last 7 days. Please wait before claiming again.';
+
+      document.getElementById('error-card-ben-name').textContent = resolvedBenName;
+      document.getElementById('error-card-id-type').textContent  = resolvedIdType;
+      document.getElementById('error-card-id').textContent       = resolvedIdNumber;
+      document.getElementById('error-card-name').textContent     = dupTicket.name || dupTicket.ben1Name || '—';
+      document.getElementById('error-card-date').textContent     = claimedDateStr + ' (' + dupTicket.time + ' slot)';
+
+      if (isMonthly) {
+        const nextAvailMonthly = new Date(dupTicket.date + 'T00:00:00');
+        nextAvailMonthly.setDate(nextAvailMonthly.getDate() + 30);
+        document.getElementById('error-card-next').textContent =
+          'Next available (30-day reset): ' +
+          MONTHS[nextAvailMonthly.getMonth()] + ' ' + nextAvailMonthly.getDate() + ', ' + nextAvailMonthly.getFullYear();
+      } else {
+        document.getElementById('error-card-next').textContent = 'Next available claim: ' + nextMonStr;
+      }
+
+      document.getElementById('error-card').classList.add('show');
+      document.getElementById('form-card').classList.remove('show');
+      document.getElementById('slot-banner').classList.remove('show');
+      document.getElementById('error-card').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
       function dismissErrorCard() {
         document.getElementById("error-card").classList.remove("show");
         document.getElementById("form-card").classList.add("show");
@@ -2037,6 +2097,7 @@
           else toast("Number claiming is currently closed");
           return;
         }
+        
 
         // FIX 7: Device limit keyed to targetStr (the ticket's date), not todayStr.
         // This prevents a new day's counter from allowing a second ticket for the same target date.
@@ -2109,8 +2170,67 @@
         btn.disabled = true;
         btn.textContent = "Checking...";
 
+        // Cross-slot duplicate check within the same submission
+        if (ben2Name && idType && idNumber && idType2 && idNumber2) {
+          if (
+            idType.trim().toLowerCase() === idType2.trim().toLowerCase() &&
+            idNumber.trim().toLowerCase() === idNumber2.trim().toLowerCase()
+          ) {
+            btn.disabled = false;
+            btn.textContent = isEditing ? 'Save Changes' : 'Generate Control Number';
+            return toast('⚠️ Beneficiary 1 and Beneficiary 2 cannot have the same ID type and number.');
+          }
+        }
+        if (ben2Name && ben1Name.trim().toLowerCase() === ben2Name.trim().toLowerCase()) {
+          btn.disabled = false;
+          btn.textContent = isEditing ? 'Save Changes' : 'Generate Control Number';
+          return toast('⚠️ Beneficiary 1 and Beneficiary 2 cannot have the same name.');
+        }
+
         // Duplicate checks (run for both new and editing)
         try {
+
+          const ml = scheduleSettings.monthlyLimits || {};
+          const claimantMonthlyLimit = ml.claimant ?? 0;
+          const ben1MonthlyLimit     = ml.ben1     ?? 0;
+          const ben2MonthlyLimit     = ml.ben2     ?? 0;
+
+          if (claimantMonthlyLimit > 0) {
+            const hit = await checkMonthlyLimitByName('name', name, claimantMonthlyLimit);
+            if (hit) {
+              showErrorCard(hit.lastFound, '', name, '', 'Claimant', 'monthly', hit);
+              btn.disabled = false; btn.textContent = isEditing ? 'Save Changes' : 'Generate Control Number'; return;
+            }
+          }
+          if (ben1MonthlyLimit > 0) {
+            const hit = await checkMonthlyLimitByName('ben1Name', ben1Name, ben1MonthlyLimit);
+            if (hit) {
+              showErrorCard(hit.lastFound, '', ben1Name, '', 'Beneficiary 1', 'monthly', hit);
+              btn.disabled = false; btn.textContent = isEditing ? 'Save Changes' : 'Generate Control Number'; return;
+            }
+            if (idType && idNumber) {
+              const hitID = await checkMonthlyLimitByID('idType', 'idNumber', idType, idNumber, ben1MonthlyLimit);
+              if (hitID) {
+                showErrorCard(hitID.lastFound, idNumber, ben1Name, idType, 'Beneficiary 1', 'monthly', hitID);
+                btn.disabled = false; btn.textContent = isEditing ? 'Save Changes' : 'Generate Control Number'; return;
+              }
+            }
+          }
+          if (ben2Name && ben2MonthlyLimit > 0) {
+            const hit = await checkMonthlyLimitByName('ben2Name', ben2Name, ben2MonthlyLimit);
+            if (hit) {
+              showErrorCard(hit.lastFound, '', ben2Name, '', 'Beneficiary 2', 'monthly', hit);
+              btn.disabled = false; btn.textContent = isEditing ? 'Save Changes' : 'Generate Control Number'; return;
+            }
+            if (idType2 && idNumber2) {
+              const hitID = await checkMonthlyLimitByID('idType2', 'idNumber2', idType2, idNumber2, ben2MonthlyLimit);
+              if (hitID) {
+                showErrorCard(hitID.lastFound, idNumber2, ben2Name, idType2, 'Beneficiary 2', 'monthly', hitID);
+                btn.disabled = false; btn.textContent = isEditing ? 'Save Changes' : 'Generate Control Number'; return;
+              }
+            }
+          }
+
           if (idType && idNumber) {
             const wd = await checkWeeklyCooldown(idType, idNumber);
             if (wd && wd.id !== editingTicketId) {
