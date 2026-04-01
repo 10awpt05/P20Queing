@@ -941,8 +941,8 @@ function initAdmin(){
   // ── Load all dateSettings for holiday dots on calendar ──
   db.ref('dateSettings').on('value', snap => {
     calHolidays = {};
-    const data = snap.val() || {};
-    Object.entries(data).forEach(([date, val]) => {
+    calDateSettings = snap.val() || {};
+    Object.entries(calDateSettings).forEach(([date, val]) => {
       if(val && val.holiday) calHolidays[date] = val.holiday;
     });
     renderAdminCal();
@@ -1442,6 +1442,7 @@ let calViewYear = new Date().getFullYear();
 let calViewMonth = new Date().getMonth();
 let calSelectedDate = null;
 let calHolidays = {};
+let calDateSettings = {};
 
 function calToKey(y,m,d){ return y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0'); }
 
@@ -1468,13 +1469,32 @@ function renderAdminCal(){
     const isToday=calViewYear===todaySrv.getFullYear()&&calViewMonth===todaySrv.getMonth()&&d===todaySrv.getDate();
     const isSel=calSelectedDate===key;
     const isHol=!!calHolidays[key];
+
+    // Per-date settings for half-day detection
+    const _ds = (typeof calDateSettings !== 'undefined' ? calDateSettings : {})[key] || {};
+    const _amOff = _ds.amEnabled === false;
+    const _pmOff = _ds.pmEnabled === false;
+    const isHalfDay = !isHol && (_amOff || _pmOff) && !(_amOff && _pmOff);
+    const isFullyClosed = !isHol && _amOff && _pmOff;
+
     let cls='admin-cal-cell';
     if(isToday) cls+=' today';
     if(isSel)   cls+=' selected';
-    if(isHol)   cls+=' holiday';
+
     const c=document.createElement('div');
-    c.className=cls;
     c.textContent=d;
+
+    if(isHol || isFullyClosed) {
+      cls+=' holiday';
+      c.style.cssText='background:#fee2e2!important;color:#991b1b!important;border:1.5px solid #fca5a5!important;font-weight:700;';
+      if(isSel) c.style.cssText='background:#dc2626!important;color:#fff!important;border:1.5px solid #dc2626!important;font-weight:700;';
+    } else if(isHalfDay) {
+      c.style.cssText='background:#fef9c3!important;color:#854d0e!important;border:1.5px solid #fde047!important;font-weight:700;';
+      if(isSel) c.style.cssText='background:#ca8a04!important;color:#fff!important;border:1.5px solid #ca8a04!important;font-weight:700;';
+    }
+
+    c.className=cls;
+
     if(isHol){
       const dot=document.createElement('div');
       dot.className='hol-dot';

@@ -1697,7 +1697,7 @@ async function checkMonthlyLimitByID(idTypeField, idNumField, idType, idNum, lim
       if (isHoliday) {
         bodyHtml = `
           <div style="display:flex;align-items:center;gap:10px;background:#fee2e2;border-radius:10px;padding:12px 14px;margin-bottom:10px;">
-            <span style="font-size:22px;">🎉</span>
+            
             <div>
               <div style="font-size:13px;font-weight:800;color:#991b1b;">Holiday</div>
               <div style="font-size:14px;font-weight:700;color:#7f1d1d;margin-top:2px;">${ds.holiday}</div>
@@ -1867,23 +1867,63 @@ async function checkMonthlyLimitByID(idTypeField, idNumField, idType, idNum, lim
         const amTaken = getTakenCountFromAtomic(targetStr, "AM");
         const pmTaken = getTakenCountFromAtomic(targetStr, "PM");
         const _dsTarget = calDateSettings[targetStr] || {};
+        const targetIsHoliday = !!(_dsTarget.holiday);
         const amDisabled = slotConfig.amEnabled === false || _dsTarget.amEnabled === false;
         const pmDisabled = slotConfig.pmEnabled === false || _dsTarget.pmEnabled === false;
-        const limAm = getLimitAm(),
-          limPm = getLimitPm(),
-          limTotal = getLimitTotal();
-        const amLeft = limAm - amTaken,
-          pmLeft = limPm - pmTaken;
+        const limAm = getLimitAm(), limPm = getLimitPm(), limTotal = getLimitTotal();
+        const amLeft = limAm - amTaken, pmLeft = limPm - pmTaken;
         const amUnavailable = amTaken >= limAm || amDisabled;
         const pmUnavailable = pmTaken >= limPm || pmDisabled;
         const allUnavailable = amUnavailable && pmUnavailable;
-        document.getElementById('pill-am-count').textContent = amDisabled ? 'Closed' : amLeft > 0 ? amLeft + ' left' : 'FULL';
-        document.getElementById('pill-am-sub').textContent   = amDisabled ? 'Session disabled' : amTaken + '/' + limAm + ' taken';
-        document.getElementById('pill-am').classList.toggle('full-slot', amLeft <= 0 || amDisabled);
 
-        document.getElementById('pill-pm-count').textContent = pmDisabled ? 'Closed' : pmLeft > 0 ? pmLeft + ' left' : 'FULL';
-        document.getElementById('pill-pm-sub').textContent   = pmDisabled ? 'Session disabled' : pmTaken + '/' + limPm + ' taken';
-        document.getElementById('pill-pm').classList.toggle('full-slot', pmLeft <= 0 || pmDisabled);
+        const statusRow = document.querySelector(".today-status-row");
+        const tmrNotice = document.querySelector(".tmr-notice");
+
+        // If holiday or fully closed by date settings — hide slots, show holiday message
+        const targetFullyClosed = targetIsHoliday || (_dsTarget.amEnabled === false && _dsTarget.pmEnabled === false);
+
+        if (targetFullyClosed) {
+          if (statusRow) statusRow.style.display = "none";
+          if (tmrNotice) tmrNotice.style.display = "none";
+          // Inject holiday message inside today-card
+          let holMsg = document.getElementById("holiday-slot-msg");
+          if (!holMsg) {
+            holMsg = document.createElement("div");
+            holMsg.id = "holiday-slot-msg";
+            holMsg.style.cssText = "margin:12px 0 4px;padding:14px 16px;background:#fee2e2;border:1.5px solid #fca5a5;border-radius:12px;display:flex;align-items:center;gap:12px;";
+            const todayCard = document.getElementById("today-card");
+            if (todayCard) todayCard.insertBefore(holMsg, todayCard.firstChild);
+          }
+          const _tmrDateLabel = MONTHS[tmr.getMonth()] + " " + tmr.getDate() + ", " + tmr.getFullYear();
+          holMsg.innerHTML = targetIsHoliday
+            ? `
+              <div>
+                <div style="font-size:13px;font-weight:800;color:#991b1b;">Holiday — No Distribution</div>
+                <div style="font-size:14px;font-weight:700;color:#7f1d1d;margin-top:2px;">${_dsTarget.holiday}</div>
+                <div style="font-size:11px;color:#b91c1c;margin-top:4px;">📅 ${_tmrDateLabel}</div>
+              </div>`
+            : `<span style="font-size:24px;">🚫</span>
+              <div>
+                <div style="font-size:13px;font-weight:800;color:#991b1b;">No Distribution Tomorrow</div>
+                <div style="font-size:12px;color:#b91c1c;margin-top:2px;">All sessions have been disabled for this date.</div>
+              </div>`;
+          holMsg.style.display = "flex";
+        } else {
+          // Remove holiday message if it exists
+          const holMsg = document.getElementById("holiday-slot-msg");
+          if (holMsg) holMsg.style.display = "none";
+          const calNotice = document.querySelector(".cal-notice");
+          if (calNotice) calNotice.style.display = "";
+
+          // Normal slot pill display
+          document.getElementById('pill-am-count').textContent = amDisabled ? 'Closed' : amLeft > 0 ? amLeft + ' left' : 'FULL';
+          document.getElementById('pill-am-sub').textContent   = amDisabled ? 'Session disabled' : amTaken + '/' + limAm + ' taken';
+          document.getElementById('pill-am').classList.toggle('full-slot', amLeft <= 0 || amDisabled);
+
+          document.getElementById('pill-pm-count').textContent = pmDisabled ? 'Closed' : pmLeft > 0 ? pmLeft + ' left' : 'FULL';
+          document.getElementById('pill-pm-sub').textContent   = pmDisabled ? 'Session disabled' : pmTaken + '/' + limPm + ' taken';
+          document.getElementById('pill-pm').classList.toggle('full-slot', pmLeft <= 0 || pmDisabled);
+        }
         const btn = document.getElementById("btn-get-number");
         const msg = document.getElementById("today-closed-msg");
         const status = getClaimingStatus();
@@ -1913,13 +1953,17 @@ async function checkMonthlyLimitByID(idTypeField, idNumField, idType, idNum, lim
             fmt(scheduleSettings.claimStart) +
             " Tomorrow</strong>";
         }if (targetFullyClosed) {
-          btn.style.display = "block";
-          btn.disabled = true;
-          btn.textContent = targetIsHoliday
-            ? "🎉 Holiday — No Distribution (" + targetDs.holiday + ")"
-            : "🚫 No Distribution Tomorrow";
-          btn.classList.add("full-btn");
-          msg.style.display = "none";
+            btn.style.display = "block";
+            btn.disabled = true;
+            btn.textContent = targetIsHoliday
+              ? "No Distribution (" + _dsTarget.holiday + ")"
+              : "🚫 No Distribution Tomorrow";
+            btn.classList.add("full-btn");
+            msg.style.display = "none";
+            if (statusRow) statusRow.style.display = "none";
+            if (tmrNotice) tmrNotice.style.display = "none";
+            const calNotice = document.querySelector(".cal-notice");
+            if (calNotice) calNotice.style.display = "none";
         } else if (allUnavailable) {
           btn.style.display = "block";
           btn.disabled = true;
@@ -2250,7 +2294,7 @@ async function checkMonthlyLimitByID(idTypeField, idNumField, idType, idNum, lim
         const _targetPmOff = _targetDs.pmEnabled === false;
         if (_targetIsHoliday || (_targetAmOff && _targetPmOff)) {
           return toast(_targetIsHoliday
-            ? "🎉 No distribution on " + _targetDs.holiday + " — holiday"
+            ? "No distribution on " + _targetDs.holiday + " — holiday"
             : "🚫 No distribution tomorrow — all sessions are closed"
           );
         }
