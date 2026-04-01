@@ -1857,10 +1857,10 @@ async function checkMonthlyLimitByID(idTypeField, idNumField, idType, idNum, lim
         c.textContent = d;
 
         // Holiday dot indicator
-        if (isHoliday && !isThisToday && !isPast) {
-          const dot = document.createElement("span");
-          dot.style.cssText = "display:block;width:5px;height:5px;border-radius:50%;background:#dc2626;margin:1px auto 0;";
-        }
+        // if (isHoliday && !isThisToday && !isPast) {
+        //   const dot = document.createElement("span");
+        //   dot.style.cssText = "display:block;width:5px;height:5px;border-radius:50%;background:#dc2626;margin:1px auto 0;";
+        // }
 
         grid.appendChild(c);
       }
@@ -1899,6 +1899,9 @@ async function checkMonthlyLimitByID(idTypeField, idNumField, idType, idNum, lim
 
         const statusRow = document.querySelector(".today-status-row");
         const tmrNotice = document.querySelector(".tmr-notice");
+        document.getElementById("today-card").style.display = "";
+        const calNoticeRestore = document.querySelector(".cal-notice");    // ← ADD
+        if (calNoticeRestore) calNoticeRestore.style.display = "";  // ← restore if was hidden
 
         // If holiday or fully closed by date settings — hide slots, show holiday message
         const targetFullyClosed = targetIsHoliday || (_dsTarget.amEnabled === false && _dsTarget.pmEnabled === false);
@@ -1956,9 +1959,15 @@ async function checkMonthlyLimitByID(idTypeField, idNumField, idType, idNum, lim
             ? "No Available Slots for Tomorrow"
             : "All Slots Full for Tomorrow";
         }
-        if (status === "blocked") {
+          if (status === "blocked") {
           btn.style.display = "none";
           msg.style.display = "none";
+          if (statusRow) statusRow.style.display = "none";
+          if (tmrNotice) tmrNotice.style.display = "none";
+          document.getElementById("today-card").style.display = "none";
+          const calNoticeBlocked = document.querySelector(".cal-notice");  // ← ADD
+          if (calNoticeBlocked) calNoticeBlocked.style.display = "none";   // ← ADD
+          return; // ← stop here, don't let the rest of renderCard() re-show anything
         } else if (status === "weekend") {
           btn.style.display = "none";
           msg.style.display = "block";
