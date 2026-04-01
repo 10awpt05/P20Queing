@@ -1526,10 +1526,31 @@ async function checkMonthlyLimitByID(idTypeField, idNumField, idType, idNum, lim
       // FIX 4: takenNumbers is now the single source of truth for slot counts.
       // The tickets listener no longer writes back to slots/ (removed that sync).
 
-        let calDateSettings = {};
+        let isFirstDateSettingsLoad = true;
         db.ref("dateSettings").on("value", (s) => {
           calDateSettings = s.val() || {};
+
+          if (!isFirstDateSettingsLoad) {
+            toast("📅 Schedule updated — refreshing...");
+          }
+          isFirstDateSettingsLoad = false;
+
           renderCalendar();
+          renderCard();
+          updateStatusBanner();
+          updateSlotBanner();
+
+          if (document.getElementById("form-card").classList.contains("show")) {
+            const editDate = editingTicketId
+              ? (myTickets.find(x => x.id === editingTicketId) || {}).date || targetStr
+              : targetStr;
+            applySlotButtonStates(editDate, selectedTime);
+
+            // Clear selectedTime if the session got disabled for the target date
+            const _ds = calDateSettings[targetStr] || {};
+            if (selectedTime === 'AM' && _ds.amEnabled === false) selectedTime = null;
+            if (selectedTime === 'PM' && _ds.pmEnabled === false) selectedTime = null;
+          }
         });
 
       db.ref("takenNumbers").on("value", (s) => {
