@@ -218,15 +218,11 @@
           <div class="cal-days" id="cal-days"></div>
         </div>
         <div class="cal-legend">
-          <span
-            ><span class="leg-dot tmr"></span>Tomorrow (Control Number
-            date)</span
-          >
-          <span
-            ><span class="leg-dot past"></span>Today &amp; past
-            (unavailable)</span
-          >
-        </div>
+        <span><span class="leg-dot tmr"></span>Tomorrow (Control Number date)</span>
+        <span><span class="leg-dot past"></span>Today &amp; past (unavailable)</span>
+        <span><span class="leg-dot" style="background:#fee2e2;border:1.5px solid #fca5a5;"></span>Holiday / Closed</span>
+        <span><span class="leg-dot" style="background:#fef9c3;border:1.5px solid #fde047;"></span>Half-day (tap for details)</span>
+      </div>
         <div class="cal-notice">
           📋
           <span data-i18n="calNotice"
@@ -1525,9 +1521,17 @@ async function checkMonthlyLimitByID(idTypeField, idNumField, idType, idNum, lim
         disabledNumbers = s.val() || {};
         renderTickets();
       });
+      
 
       // FIX 4: takenNumbers is now the single source of truth for slot counts.
       // The tickets listener no longer writes back to slots/ (removed that sync).
+
+        let calDateSettings = {};
+        db.ref("dateSettings").on("value", (s) => {
+          calDateSettings = s.val() || {};
+          renderCalendar();
+        });
+
       db.ref("takenNumbers").on("value", (s) => {
         takenNumbersData = s.val() || {};
         renderCard();
@@ -1628,8 +1632,9 @@ async function checkMonthlyLimitByID(idTypeField, idNumField, idType, idNum, lim
         const pmTaken = getTakenCountFromAtomic(dateStr, "PM");
         const limAm = getLimitAm(),
           limPm = getLimitPm();
-        const amDisabled = slotConfig.amEnabled === false;
-        const pmDisabled = slotConfig.pmEnabled === false;
+        const _ds = calDateSettings[targetStr] || {};
+        const amDisabled = slotConfig.amEnabled === false || _ds.amEnabled === false;
+        const pmDisabled = slotConfig.pmEnabled === false || _ds.pmEnabled === false;
         const aF = amTaken >= limAm || amDisabled;
         const pF = pmTaken >= limPm || pmDisabled;
         const ba = document.getElementById("btn-am"),
@@ -1675,71 +1680,179 @@ async function checkMonthlyLimitByID(idTypeField, idNumField, idType, idNum, lim
         }
       }
 
-      function renderCalendar() {
-        const tmr = getTargetDate(now);
-        const yr = tmr.getFullYear(),
-          mo = tmr.getMonth();
-        document.getElementById("cal-month-name").textContent = MONTHS[mo];
-        document.getElementById("cal-year").textContent = yr;
-        document.getElementById("cal-badge-today-day").textContent = String(
-          now.getDate(),
-        ).padStart(2, "0");
-        document.getElementById("cal-badge-today-name").textContent =
-          DAYS[now.getDay()];
-        document.getElementById("cal-badge-day").textContent = String(
-          tmr.getDate(),
-        ).padStart(2, "0");
-        document.getElementById("cal-badge-dayname").textContent =
-          DAYS[tmr.getDay()];
-        document.getElementById("notice-tmr-date").textContent =
-          MONTHS[tmr.getMonth()].slice(0, 3) + " " + tmr.getDate();
-        const todayDay = now.getDay();
-        const isNoClaimDay = todayDay === 5 || todayDay === 6;
-        const calNoticeEl = document.querySelector(".cal-notice");
-        if (calNoticeEl) calNoticeEl.style.display = isNoClaimDay ? "none" : "";
-        document.getElementById("notice-weekend-warn").textContent = "";
-        const firstDow = new Date(yr, mo, 1).getDay();
-        const daysInMo = new Date(yr, mo + 1, 0).getDate();
-        const prevDays = new Date(yr, mo, 0).getDate();
-        const todayY = now.getFullYear(),
-          todayM = now.getMonth(),
-          todayD = now.getDate();
-        const tmrD = tmr.getDate();
-        const grid = document.getElementById("cal-days");
-        grid.innerHTML = "";
-        for (let i = firstDow - 1; i >= 0; i--) {
-          const c = document.createElement("div");
-          c.className = "cal-day other-month";
-          c.textContent = prevDays - i;
-          grid.appendChild(c);
-        }
-        for (let d = 1; d <= daysInMo; d++) {
-          const c = document.createElement("div");
-          const dow = new Date(yr, mo, d).getDay();
-          const isThisToday = yr === todayY && mo === todayM && d === todayD;
-          const isPast = new Date(yr, mo, d) < new Date(todayY, todayM, todayD);
-          const isTmr = d === tmrD;
-          let cls = "cal-day";
-          if (isTmr && !isDistributionClosed(tmr)) cls += " tomorrow-cell";
-          else if (isThisToday || isPast) cls += " past";
-          else {
-            cls += " future-cell";
-            if (dow === 0) cls += " sunday";
-            else if (dow === 6) cls += " saturday";
-          }
-          c.className = cls;
-          c.textContent = d;
-          grid.appendChild(c);
-        }
-        const total = firstDow + daysInMo;
-        const trail = (7 - (total % 7)) % 7;
-        for (let d = 1; d <= trail; d++) {
-          const c = document.createElement("div");
-          c.className = "cal-day other-month";
-          c.textContent = d;
-          grid.appendChild(c);
-        }
+      function showCalDayPopup(ds, yr, mo, d) {
+      const existing = document.getElementById("cal-day-popup");
+      if (existing) existing.remove();
+
+      const dateKey = yr + "-" + String(mo + 1).padStart(2, "0") + "-" + String(d).padStart(2, "0");
+      const dateObj = new Date(yr, mo, d);
+      const dateLabel = DAYS[dateObj.getDay()] + ", " + MONTHS[mo] + " " + d + ", " + yr;
+
+      const isHoliday = !!(ds.holiday);
+      const amOff = ds.amEnabled === false;
+      const pmOff = ds.pmEnabled === false;
+      const isFullyClosed = amOff && pmOff;
+
+      let bodyHtml = "";
+      if (isHoliday) {
+        bodyHtml = `
+          <div style="display:flex;align-items:center;gap:10px;background:#fee2e2;border-radius:10px;padding:12px 14px;margin-bottom:10px;">
+            <span style="font-size:22px;">🎉</span>
+            <div>
+              <div style="font-size:13px;font-weight:800;color:#991b1b;">Holiday</div>
+              <div style="font-size:14px;font-weight:700;color:#7f1d1d;margin-top:2px;">${ds.holiday}</div>
+            </div>
+          </div>
+          <div style="font-size:12px;color:#6b7280;line-height:1.6;">No distribution on this day due to the holiday.</div>
+        `;
+      } else if (isFullyClosed) {
+        bodyHtml = `
+          <div style="display:flex;align-items:center;gap:10px;background:#fee2e2;border-radius:10px;padding:12px 14px;margin-bottom:10px;">
+            <span style="font-size:22px;">🚫</span>
+            <div style="font-size:13px;font-weight:800;color:#991b1b;">All Sessions Closed</div>
+          </div>
+          <div style="font-size:12px;color:#6b7280;">Both AM and PM sessions are disabled for this date.</div>
+        `;
+      } else {
+        const amStatus = amOff
+          ? `<div style="display:flex;align-items:center;gap:8px;padding:9px 12px;background:#fee2e2;border-radius:8px;border:1px solid #fca5a5;">
+              <span style="font-size:14px;">🌅</span>
+              <div><div style="font-size:12px;font-weight:800;color:#991b1b;">AM Session</div><div style="font-size:11px;color:#b91c1c;margin-top:1px;">⛔ Closed</div></div>
+            </div>`
+          : `<div style="display:flex;align-items:center;gap:8px;padding:9px 12px;background:#f0fdf4;border-radius:8px;border:1px solid #86efac;">
+              <span style="font-size:14px;">🌅</span>
+              <div><div style="font-size:12px;font-weight:800;color:#166534;">AM Session</div><div style="font-size:11px;color:#15803d;margin-top:1px;">✅ ${fmt(scheduleSettings.amStart)} – ${fmt(scheduleSettings.amEnd)}</div></div>
+            </div>`;
+        const pmStatus = pmOff
+          ? `<div style="display:flex;align-items:center;gap:8px;padding:9px 12px;background:#fee2e2;border-radius:8px;border:1px solid #fca5a5;">
+              <span style="font-size:14px;">🌇</span>
+              <div><div style="font-size:12px;font-weight:800;color:#991b1b;">PM Session</div><div style="font-size:11px;color:#b91c1c;margin-top:1px;">⛔ Closed</div></div>
+            </div>`
+          : `<div style="display:flex;align-items:center;gap:8px;padding:9px 12px;background:#f0fdf4;border-radius:8px;border:1px solid #86efac;">
+              <span style="font-size:14px;">🌇</span>
+              <div><div style="font-size:12px;font-weight:800;color:#166534;">PM Session</div><div style="font-size:11px;color:#15803d;margin-top:1px;">✅ ${fmt(scheduleSettings.pmStart)} – ${fmt(scheduleSettings.pmEnd)}</div></div>
+            </div>`;
+        bodyHtml = `
+          <div style="background:#fef9c3;border-radius:10px;padding:10px 12px;margin-bottom:12px;display:flex;align-items:center;gap:8px;">
+            <span style="font-size:16px;">⚠️</span>
+            <span style="font-size:12px;font-weight:800;color:#854d0e;">Half-Day — Limited Sessions</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:8px;">${amStatus}${pmStatus}</div>
+        `;
       }
+
+      const popup = document.createElement("div");
+      popup.id = "cal-day-popup";
+      popup.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:3000;display:flex;align-items:center;justify-content:center;padding:16px;backdrop-filter:blur(3px);animation:fadeIn 0.15s;";
+      popup.innerHTML = `
+        <div style="background:#fff;border-radius:18px;width:100%;max-width:340px;box-shadow:0 20px 50px rgba(0,0,0,0.2);overflow:hidden;">
+          <div style="background:linear-gradient(135deg,#1e3a5f,#2563eb);padding:16px 18px;display:flex;align-items:center;justify-content:space-between;">
+            <div>
+              <div style="color:#fff;font-weight:800;font-size:14px;font-family:Nunito,sans-serif;">📅 ${dateLabel}</div>
+            </div>
+            <button onclick="document.getElementById('cal-day-popup').remove()" style="width:28px;height:28px;border-radius:50%;border:none;background:rgba(255,255,255,0.2);color:#fff;font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;">✕</button>
+          </div>
+          <div style="padding:16px 18px 18px;font-family:Nunito,sans-serif;">
+            ${bodyHtml}
+            <button onclick="document.getElementById('cal-day-popup').remove()" style="margin-top:14px;width:100%;padding:11px;background:linear-gradient(135deg,#1e3a5f,#2563eb);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:800;cursor:pointer;font-family:Nunito,sans-serif;">Got it</button>
+          </div>
+        </div>
+      `;
+      popup.onclick = (e) => { if (e.target === popup) popup.remove(); };
+      document.body.appendChild(popup);
+    }
+
+      function renderCalendar() {
+      const tmr = getTargetDate(now);
+      const yr = tmr.getFullYear(), mo = tmr.getMonth();
+      document.getElementById("cal-month-name").textContent = MONTHS[mo];
+      document.getElementById("cal-year").textContent = yr;
+      document.getElementById("cal-badge-today-day").textContent = String(now.getDate()).padStart(2, "0");
+      document.getElementById("cal-badge-today-name").textContent = DAYS[now.getDay()];
+      document.getElementById("cal-badge-day").textContent = String(tmr.getDate()).padStart(2, "0");
+      document.getElementById("cal-badge-dayname").textContent = DAYS[tmr.getDay()];
+      document.getElementById("notice-tmr-date").textContent = MONTHS[tmr.getMonth()].slice(0, 3) + " " + tmr.getDate();
+      const todayDay = now.getDay();
+      const isNoClaimDay = todayDay === 5 || todayDay === 6;
+      const calNoticeEl = document.querySelector(".cal-notice");
+      if (calNoticeEl) calNoticeEl.style.display = isNoClaimDay ? "none" : "";
+      document.getElementById("notice-weekend-warn").textContent = "";
+      const firstDow = new Date(yr, mo, 1).getDay();
+      const daysInMo = new Date(yr, mo + 1, 0).getDate();
+      const prevDays = new Date(yr, mo, 0).getDate();
+      const todayY = now.getFullYear(), todayM = now.getMonth(), todayD = now.getDate();
+      const tmrD = tmr.getDate();
+      const grid = document.getElementById("cal-days");
+      grid.innerHTML = "";
+
+      for (let i = firstDow - 1; i >= 0; i--) {
+        const c = document.createElement("div");
+        c.className = "cal-day other-month";
+        c.textContent = prevDays - i;
+        grid.appendChild(c);
+      }
+
+      for (let d = 1; d <= daysInMo; d++) {
+        const dow = new Date(yr, mo, d).getDay();
+        const isThisToday = yr === todayY && mo === todayM && d === todayD;
+        const isPast = new Date(yr, mo, d) < new Date(todayY, todayM, todayD);
+        const isTmr = d === tmrD;
+        const dateKey = yr + "-" + String(mo + 1).padStart(2, "0") + "-" + String(d).padStart(2, "0");
+        const ds = calDateSettings[dateKey] || {};
+        const isHoliday = !!(ds.holiday);
+        const amOff = ds.amEnabled === false;
+        const pmOff = ds.pmEnabled === false;
+        const isHalfDay = !isHoliday && (amOff || pmOff) && !(amOff && pmOff);
+        const isFullyClosed = !isHoliday && amOff && pmOff;
+
+        const c = document.createElement("div");
+        let cls = "cal-day";
+
+        if (isTmr && !isDistributionClosed(tmr)) cls += " tomorrow-cell";
+        else if (isThisToday || isPast) cls += " past";
+        else {
+          cls += " future-cell";
+          if (dow === 0) cls += " sunday";
+          else if (dow === 6) cls += " saturday";
+        }
+
+        // Holiday/half-day overlays (skip past/today)
+        if (!isThisToday && !isPast) {
+          if (isHoliday || isFullyClosed) {
+            cls += " cal-holiday";
+            c.style.cssText += "background:#fee2e2!important;color:#991b1b!important;border:1.5px solid #fca5a5!important;cursor:pointer;";
+            c.title = isHoliday ? "Holiday: " + ds.holiday : "Closed (all sessions disabled)";
+            c.onclick = ((_ds, _d) => () => showCalDayPopup(_ds, yr, mo, _d))(ds, d);
+          } else if (isHalfDay) {
+            cls += " cal-halfday";
+            c.style.cssText += "background:#fef9c3!important;color:#854d0e!important;border:1.5px solid #fde047!important;cursor:pointer;";
+            const halfLabel = amOff ? "PM only" : "AM only";
+            c.title = "Half-day: " + halfLabel;
+            c.onclick = ((_ds, _d) => () => showCalDayPopup(_ds, yr, mo, _d))(ds, d);
+          }
+        }
+
+        c.className = cls;
+        c.textContent = d;
+
+        // Holiday dot indicator
+        if (isHoliday && !isThisToday && !isPast) {
+          const dot = document.createElement("span");
+          dot.style.cssText = "display:block;width:5px;height:5px;border-radius:50%;background:#dc2626;margin:1px auto 0;";
+        }
+
+        grid.appendChild(c);
+      }
+
+      const total = firstDow + daysInMo;
+      const trail = (7 - (total % 7)) % 7;
+      for (let d = 1; d <= trail; d++) {
+        const c = document.createElement("div");
+        c.className = "cal-day other-month";
+        c.textContent = d;
+        grid.appendChild(c);
+      }
+    }
 
       function renderCard() {
         renderCalendar();
@@ -1753,8 +1866,9 @@ async function checkMonthlyLimitByID(idTypeField, idNumField, idType, idNum, lim
         // FIX 6: Use takenNumbers atomic counts for slot pill display
         const amTaken = getTakenCountFromAtomic(targetStr, "AM");
         const pmTaken = getTakenCountFromAtomic(targetStr, "PM");
-        const amDisabled = slotConfig.amEnabled === false;
-        const pmDisabled = slotConfig.pmEnabled === false;
+        const _dsTarget = calDateSettings[targetStr] || {};
+        const amDisabled = slotConfig.amEnabled === false || _dsTarget.amEnabled === false;
+        const pmDisabled = slotConfig.pmEnabled === false || _dsTarget.pmEnabled === false;
         const limAm = getLimitAm(),
           limPm = getLimitPm(),
           limTotal = getLimitTotal();
@@ -1798,6 +1912,14 @@ async function checkMonthlyLimitByID(idTypeField, idNumField, idType, idNum, lim
             "Claiming closed. Opens <strong>" +
             fmt(scheduleSettings.claimStart) +
             " Tomorrow</strong>";
+        }if (targetFullyClosed) {
+          btn.style.display = "block";
+          btn.disabled = true;
+          btn.textContent = targetIsHoliday
+            ? "🎉 Holiday — No Distribution (" + targetDs.holiday + ")"
+            : "🚫 No Distribution Tomorrow";
+          btn.classList.add("full-btn");
+          msg.style.display = "none";
         } else if (allUnavailable) {
           btn.style.display = "block";
           btn.disabled = true;
@@ -2120,6 +2242,18 @@ async function checkMonthlyLimitByID(idTypeField, idNumField, idType, idNum, lim
           else toast("Number claiming is currently closed");
           return;
         }
+
+        // Block generation if tomorrow is a holiday or fully closed
+        const _targetDs = calDateSettings[targetStr] || {};
+        const _targetIsHoliday = !!(_targetDs.holiday);
+        const _targetAmOff = _targetDs.amEnabled === false;
+        const _targetPmOff = _targetDs.pmEnabled === false;
+        if (_targetIsHoliday || (_targetAmOff && _targetPmOff)) {
+          return toast(_targetIsHoliday
+            ? "🎉 No distribution on " + _targetDs.holiday + " — holiday"
+            : "🚫 No distribution tomorrow — all sessions are closed"
+          );
+        }
         
 
         // FIX 7: Device limit keyed to targetStr (the ticket's date), not todayStr.
@@ -2192,6 +2326,7 @@ async function checkMonthlyLimitByID(idTypeField, idNumField, idType, idNum, lim
         const isEditing = !!editingTicketId;
 
         // ── GUARD: Re-validate selected session is still enabled and has slots ───────
+        const _dateDs = calDateSettings[targetStr] || {};
         if (selectedTime === 'AM' && slotConfig.amEnabled === false) {
           return toast('⛔ AM session has been disabled. Please refresh.');
         }

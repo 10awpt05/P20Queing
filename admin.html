@@ -54,6 +54,145 @@
   color: #1e40af;
   line-height: 1.6;
 }
+
+/* ── Per-Date Settings Panel ─────────────────────────────────── */
+#date-settings-panel {
+  display: none;
+  animation: slideDown 0.2s ease;
+}
+#date-settings-panel.visible {
+  display: block;
+}
+@keyframes slideDown {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.date-panel-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 14px;
+  padding-bottom: 12px;
+  border-bottom: 1.5px solid #e5e7eb;
+}
+.date-panel-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: #1e293b;
+}
+.date-panel-sub {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 1px;
+}
+.date-panel-badge {
+  margin-left: auto;
+  background: #dbeafe;
+  color: #1d4ed8;
+  border: 1.5px solid #93c5fd;
+  border-radius: 20px;
+  padding: 3px 12px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.date-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 0;
+  border-bottom: 1px solid #f3f4f6;
+}
+.date-toggle-row:last-of-type { border-bottom: none; }
+.date-toggle-info .dti-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1e293b;
+}
+.date-toggle-info .dti-sub {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 2px;
+}
+.holiday-section {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1.5px dashed #e5e7eb;
+}
+.holiday-section-title {
+  font-size: 13px;
+  font-weight: 800;
+  color: #1e293b;
+  margin-bottom: 8px;
+}
+.holiday-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: #fef3c7;
+  border: 1.5px solid #fde68a;
+  color: #92400e;
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+.holiday-remove-btn {
+  padding: 3px 9px;
+  background: #fee2e2;
+  color: #dc2626;
+  border: 1.5px solid #fca5a5;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: Nunito, sans-serif;
+  transition: all 0.15s;
+}
+.holiday-remove-btn:hover { background: #dc2626; color: #fff; }
+.holiday-input-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.holiday-input-row input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1.5px solid #e5e7eb;
+  border-radius: 10px;
+  font-size: 13px;
+  font-family: Nunito, sans-serif;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.holiday-input-row input:focus { border-color: #2563eb; }
+.holiday-save-btn {
+  padding: 8px 16px;
+  background: #2563eb;
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  font-family: Nunito, sans-serif;
+  transition: background 0.15s;
+}
+.holiday-save-btn:hover { background: #1d4ed8; }
+.holiday-hint {
+  font-size: 11px;
+  color: #9ca3af;
+  margin-top: 4px;
+}
+.date-status-msg {
+  display: none;
+  margin-top: 10px;
+  font-size: 13px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-weight: 600;
+}
 </style>
 </head>
 <body>
@@ -82,10 +221,92 @@
 <div class="wrap">
   <div class="fb-status"><div class="fb-dot" id="fb-dot"></div><span id="fb-status-text">Connecting...</span></div>
 
-  <div class="date-bar">
-    <label>View Date</label>
-    <input type="date" id="date-input" onchange="loadDate()"/>
+  <!-- ── Calendar Date Picker ─────────────────────────────────── -->
+  <div class="section-card" style="padding:1.25rem;">
+    <div class="section-title" style="margin-bottom:1rem;">View Date</div>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+      <button onclick="calPrevMonth()" class="btn-nav-month">&#8249;</button>
+      <span id="cal-month-label" style="font-size:15px;font-weight:700;color:#1e293b;"></span>
+      <button onclick="calNextMonth()" class="btn-nav-month">&#8250;</button>
+    </div>
+
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:4px;">
+      <div class="cal-dow">Sun</div><div class="cal-dow">Mon</div><div class="cal-dow">Tue</div>
+      <div class="cal-dow">Wed</div><div class="cal-dow">Thu</div><div class="cal-dow">Fri</div><div class="cal-dow">Sat</div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(7,1fr);gap:2px;" id="admin-cal-grid"></div>
+
+    <!-- Selected date bar -->
+    <div id="admin-cal-selected-bar" style="display:none;margin-top:12px;background:#eff6ff;border-radius:10px;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;">
+      <div>
+        <div style="font-size:14px;font-weight:700;color:#1e293b;" id="admin-sel-label">—</div>
+        <div style="font-size:12px;color:#6b7280;" id="admin-sel-sub"></div>
+      </div>
+      <button onclick="loadDate()" style="padding:7px 18px;background:#2563eb;color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;">↺ Reload</button>
+    </div>
   </div>
+
+  <!-- ── Per-Date Settings Panel (shown after selecting a date) ─ -->
+  <div class="section-card" style="padding:1.25rem;margin-top:0;" id="date-settings-panel">
+
+    <div class="date-panel-header">
+      <div>
+        <div class="date-panel-title">📅 Date Settings</div>
+        <div class="date-panel-sub" id="date-panel-sub">Configure sessions and holidays for the selected date</div>
+      </div>
+      <div class="date-panel-badge" id="date-panel-badge">—</div>
+    </div>
+
+    <!-- AM Toggle -->
+    <div class="date-toggle-row">
+      <div class="date-toggle-info">
+        <div class="dti-title">🌅 AM Session</div>
+        <div class="dti-sub" id="admin-am-sub">—</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="date-am-toggle" checked onchange="onDateSessionToggle('am')">
+        <span class="slider"></span>
+      </label>
+    </div>
+
+    <!-- PM Toggle -->
+    <div class="date-toggle-row">
+      <div class="date-toggle-info">
+        <div class="dti-title">🌇 PM Session</div>
+        <div class="dti-sub" id="admin-pm-sub">—</div>
+      </div>
+      <label class="switch">
+        <input type="checkbox" id="date-pm-toggle" checked onchange="onDateSessionToggle('pm')">
+        <span class="slider"></span>
+      </label>
+    </div>
+
+    <!-- Holiday Section -->
+    <div class="holiday-section">
+      <div class="holiday-section-title">🎉 Holiday for this Date</div>
+
+      <!-- Current holiday badge (shown if set) -->
+      <div id="holiday-display" style="display:none;margin-bottom:8px;">
+        <span class="holiday-badge">
+          🎉 <span id="holiday-name-badge"></span>
+        </span>
+        <button class="holiday-remove-btn" onclick="removeHoliday()">✕ Remove</button>
+      </div>
+
+      <!-- Input row -->
+      <div class="holiday-input-row">
+        <input type="text" id="holiday-input" placeholder="e.g. New Year's Day, Rizal Day…" maxlength="60"/>
+        <button class="holiday-save-btn" onclick="saveHoliday()">💾 Save</button>
+      </div>
+      <div class="holiday-hint">Leave blank and save to remove the holiday label from this date.</div>
+    </div>
+
+    <!-- Status message -->
+    <div class="date-status-msg" id="admin-session-status"></div>
+
+  </div>
+  <!-- ── End Per-Date Settings Panel ────────────────────────────── -->
 
   <div class="search-bar">
     <div class="search-bar-title">🔍 Search by Claimant Name or Priority Number</div>
@@ -153,18 +374,10 @@
       </div>
       <div class="sc-modal-body">
         <p class="sc-desc">Set how many slots each session has, which numbers to use, and where to start. Changes save to Firebase and apply immediately.</p>
+
+        <!-- AM Section -->
         <div class="sc-section">
           <div class="sc-section-label">🌅 AM Session</div>
-          <div class="sc-toggle-row" id="sc-am-toggle-row">
-            <div class="sc-toggle-label-group">
-              <div class="sc-toggle-main" id="sc-am-toggle-label">✅ AM Session: ON</div>
-              <div class="sc-toggle-sub" id="sc-am-toggle-sub">AM slots are visible and available to users</div>
-            </div>
-            <label class="switch">
-              <input type="checkbox" id="sc-am-enabled" checked onchange="onScAmToggle()"/>
-              <span class="slider"></span>
-            </label>
-          </div>
           <div class="sc-row">
             <div class="sc-field">
               <label>Number of Slots</label>
@@ -187,18 +400,10 @@
           </div>
           <div class="sc-preview-pill" id="sc-am-preview">Preview: —</div>
         </div>
+
+        <!-- PM Section -->
         <div class="sc-section">
           <div class="sc-section-label">🌇 PM Session</div>
-          <div class="sc-toggle-row" id="sc-pm-toggle-row">
-            <div class="sc-toggle-label-group">
-              <div class="sc-toggle-main" id="sc-pm-toggle-label">✅ PM Session: ON</div>
-              <div class="sc-toggle-sub" id="sc-pm-toggle-sub">PM slots are visible and available to users</div>
-            </div>
-            <label class="switch">
-              <input type="checkbox" id="sc-pm-enabled" checked onchange="onScPmToggle()"/>
-              <span class="slider"></span>
-            </label>
-          </div>
           <div class="sc-row">
             <div class="sc-field">
               <label>Number of Slots</label>
@@ -221,6 +426,7 @@
           </div>
           <div class="sc-preview-pill" id="sc-pm-preview">Preview: —</div>
         </div>
+
         <div class="sc-reset-row">
           <button class="btn-sc-reset" onclick="resetSlotDefaults()">↺ Reset to Default (Odd 1–149 / 151–299)</button>
         </div>
@@ -332,7 +538,7 @@
         </div>
       </div>
 
-      <!-- ── Monthly Claim Limits (NEW) ── -->
+      <!-- ── Monthly Claim Limits ── -->
       <div class="settings-block">
         <h3><span class="icon">📅</span> Monthly Claim Limits <span style="font-size:11px;font-weight:600;color:#6b7280;text-transform:none;letter-spacing:0;">(rolling 30-day window)</span></h3>
         <p style="font-size:12px;color:var(--gray);margin-bottom:16px;">
@@ -419,7 +625,6 @@
           </div>
         </div>
 
-        <!-- Info box -->
         <div class="mlb-info-box">
           <strong>📌 How the 30-day window works:</strong><br>
           The system counts all tickets from the past 30 days up to the target distribution date.
@@ -610,11 +815,6 @@ function setType(session,val,silent){
   if(!silent)updateSlotPreview();
 }
 function updateSlotPreview(){
-  const amOn=slotConfig.amEnabled!==false;
-  const pmOn=slotConfig.pmEnabled!==false;
-  document.getElementById('sc-am-enabled').checked=amOn;
-  document.getElementById('sc-pm-enabled').checked=pmOn;
-  onScAmToggle();onScPmToggle();
   const amCount=parseInt(document.getElementById('sc-am-count').value)||1;
   const amStart=parseInt(document.getElementById('sc-am-start').value)||1;
   const pmCount=parseInt(document.getElementById('sc-pm-count').value)||1;
@@ -626,9 +826,6 @@ function resetSlotDefaults(){
   document.getElementById('sc-am-count').value=75;document.getElementById('sc-am-start').value=1;
   document.getElementById('sc-pm-count').value=75;document.getElementById('sc-pm-start').value=151;
   _scAmType='odd';_scPmType='odd';setType('am','odd',true);setType('pm','odd',true);updateSlotPreview();
-  document.getElementById('sc-am-enabled').checked=true;
-  document.getElementById('sc-pm-enabled').checked=true;
-  onScAmToggle();onScPmToggle();
 }
 async function saveSlotConfig(){
   if(!serverTimeSynced)return toast('Waiting for server time synchronization...');
@@ -638,9 +835,7 @@ async function saveSlotConfig(){
   const pmStart=parseInt(document.getElementById('sc-pm-start').value);
   if(!amCount||amCount<1||!amStart||amStart<1||!pmCount||pmCount<1||!pmStart||pmStart<1){showScStatus('❌ All fields must be positive numbers',false);return;}
   if(amCount>500||pmCount>500){showScStatus('❌ Max 500 slots per session',false);return;}
-  const ns={amCount,amStart,amType:_scAmType,pmCount,pmStart,pmType:_scPmType,
-    amEnabled:document.getElementById('sc-am-enabled').checked,
-    pmEnabled:document.getElementById('sc-pm-enabled').checked};
+  const ns={amCount,amStart,amType:_scAmType,pmCount,pmStart,pmType:_scPmType};
   try{
     await db.ref('slotConfig').set(ns);
     slotConfig=ns;updateScbSummary();updateGridTitles();refreshStats();renderGrid();
@@ -742,10 +937,28 @@ function initAdmin(){
     updateScbSummary();updateGridTitles();
     if(currentDate){refreshStats();renderGrid();}
   });
-  const today=getServerTime();
-  const ts=today.getFullYear()+'-'+pad(today.getMonth()+1)+'-'+pad(today.getDate());
-  document.getElementById('date-input').value=ts;
-  setTimeout(loadDate,400);
+
+  // ── Load all dateSettings for holiday dots on calendar ──
+  db.ref('dateSettings').on('value', snap => {
+    calHolidays = {};
+    const data = snap.val() || {};
+    Object.entries(data).forEach(([date, val]) => {
+      if(val && val.holiday) calHolidays[date] = val.holiday;
+    });
+    renderAdminCal();
+  });
+
+  // Auto-select today on init
+  const today = getServerTime();
+  const ts = today.getFullYear()+'-'+pad(today.getMonth()+1)+'-'+pad(today.getDate());
+  calSelectedDate = ts;
+  calViewYear = today.getFullYear();
+  calViewMonth = today.getMonth();
+  renderAdminCal();
+  setTimeout(() => {
+    const d = today.getDate();
+    calSelectDate(ts, d);
+  }, 400);
 }
 
 function rebuildTicketsForDate(ds){
@@ -773,7 +986,6 @@ function applyToggleUI(isOn){
   }
 }
 
-// ── NEW: Monthly Limit Mode helper ─────────────────────────────────────────────
 function setMonthlyLimitMode(person, mode) {
   const isLimited = mode === 'limited';
   document.getElementById(person + '-limit-btn-limited').classList.toggle('active', isLimited);
@@ -782,7 +994,6 @@ function setMonthlyLimitMode(person, mode) {
   document.getElementById(person + '-limit-unlimited-msg').style.display = isLimited ? 'none' : 'block';
 }
 
-// ── UPDATED: applySettingsToUI — includes monthly limits ──────────────────────
 function applySettingsToUI(){
   const isOn=!!scheduleSettings.claimingEnabled;
   document.getElementById('claiming-toggle').checked=isOn;
@@ -793,13 +1004,9 @@ function applySettingsToUI(){
   document.getElementById('am-end').value=scheduleSettings.amEnd||'12:00';
   document.getElementById('pm-start').value=scheduleSettings.pmStart||'12:00';
   document.getElementById('pm-end').value=scheduleSettings.pmEnd||'17:00';
-
-  // Device limit
   const savedLimit=scheduleSettings.deviceLimit??0;
   if(savedLimit===0){setDeviceLimitMode('unlimited');}
   else{setDeviceLimitMode('limited');document.getElementById('device-limit').value=savedLimit;}
-
-  // Monthly limits
   const ml=scheduleSettings.monthlyLimits||{};
   const claimantLimit=ml.claimant??0;
   if(claimantLimit===0){setMonthlyLimitMode('claimant','unlimited');}
@@ -812,7 +1019,6 @@ function applySettingsToUI(){
   else{setMonthlyLimitMode('ben2','limited');document.getElementById('ben2-monthly-limit').value=ben2Limit;}
 }
 
-// ── UPDATED: updateCurrentSettingsBar — shows monthly limits ──────────────────
 function updateCurrentSettingsBar(){
   const isOn=!!scheduleSettings.claimingEnabled;
   const clEl=document.getElementById('cs-claim');
@@ -823,8 +1029,6 @@ function updateCurrentSettingsBar(){
   const dl=scheduleSettings.deviceLimit??1;
   const csDevice=document.getElementById('cs-device');
   if(csDevice)csDevice.textContent=dl===0?'Unlimited':dl+'/day';
-
-  // Monthly
   const ml=scheduleSettings.monthlyLimits||{};
   const c=ml.claimant??0, b1=ml.ben1??0, b2=ml.ben2??0;
   const csMonthly=document.getElementById('cs-monthly');
@@ -836,20 +1040,17 @@ function updateCurrentSettingsBar(){
   }
 }
 
-// ── UPDATED: saveSettings — saves monthly limits to Firebase ──────────────────
 async function saveSettings(){
   if(!serverTimeSynced)return toast('Waiting for server time synchronization...');
   const isOn=document.getElementById('claiming-toggle').checked;
   const isUnlimited=document.getElementById('dlimit-btn-unlimited').classList.contains('active');
   const deviceLimit=isUnlimited?0:(parseInt(document.getElementById('device-limit').value)||1);
-
   const claimantIsUnlimited=document.getElementById('claimant-limit-btn-unlimited').classList.contains('active');
   const ben1IsUnlimited=document.getElementById('ben1-limit-btn-unlimited').classList.contains('active');
   const ben2IsUnlimited=document.getElementById('ben2-limit-btn-unlimited').classList.contains('active');
   const claimantMonthly=claimantIsUnlimited?0:(parseInt(document.getElementById('claimant-monthly-limit').value)||1);
   const ben1Monthly=ben1IsUnlimited?0:(parseInt(document.getElementById('ben1-monthly-limit').value)||1);
   const ben2Monthly=ben2IsUnlimited?0:(parseInt(document.getElementById('ben2-monthly-limit').value)||1);
-
   const ns={
     claimingEnabled:isOn,claimRestricted:true,
     claimStart:document.getElementById('claim-start').value,
@@ -894,8 +1095,8 @@ function setDeviceLimitMode(mode){
 }
 
 async function loadDate(){
-  currentDate=document.getElementById('date-input').value;
-  if(!currentDate)return toast('⚠ Select a date first');
+  currentDate = calSelectedDate;
+  if(!currentDate) return toast('⚠ Select a date first');
   document.getElementById('loading-overlay').classList.remove('hide');
   rebuildTicketsForDate(currentDate);
   refreshStats();renderGrid();renderTicketList();
@@ -1228,25 +1429,188 @@ async function deleteAllRecords(){
   }catch(e){prog.style.display='none';toast('❌ Error: '+e.message);}
 }
 
-function onScAmToggle(){
-  const isOn=document.getElementById('sc-am-enabled').checked;
-  const row=document.getElementById('sc-am-toggle-row');
-  document.getElementById('sc-am-toggle-label').textContent=isOn?'✅ AM Session: ON':'⛔ AM Session: OFF';
-  document.getElementById('sc-am-toggle-sub').textContent=isOn?'AM slots are visible and available to users':'AM slots will be hidden and disabled for users';
-  row.classList.toggle('session-off',!isOn);
-}
-function onScPmToggle(){
-  const isOn=document.getElementById('sc-pm-enabled').checked;
-  const row=document.getElementById('sc-pm-toggle-row');
-  document.getElementById('sc-pm-toggle-label').textContent=isOn?'✅ PM Session: ON':'⛔ PM Session: OFF';
-  document.getElementById('sc-pm-toggle-sub').textContent=isOn?'PM slots are visible and available to users':'PM slots will be hidden and disabled for users';
-  row.classList.toggle('session-off',!isOn);
-}
-
+// ── CALENDAR ──────────────────────────────────────────────────────────────────
 const MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+const CAL_MONTHS=MONTHS;
+const CAL_DAYS=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+
 function pad(n){return String(n).padStart(2,'0');}
 function pad3(n){return String(n).padStart(3,'0');}
 function toast(msg){const e=document.getElementById('toast');e.textContent=msg;e.classList.add('show');setTimeout(()=>e.classList.remove('show'),2800);}
+
+let calViewYear = new Date().getFullYear();
+let calViewMonth = new Date().getMonth();
+let calSelectedDate = null;
+let calHolidays = {};
+
+function calToKey(y,m,d){ return y+'-'+String(m+1).padStart(2,'0')+'-'+String(d).padStart(2,'0'); }
+
+function renderAdminCal(){
+  document.getElementById('cal-month-label').textContent = CAL_MONTHS[calViewMonth]+' '+calViewYear;
+  const grid = document.getElementById('admin-cal-grid');
+  grid.innerHTML = '';
+  const firstDow = new Date(calViewYear, calViewMonth, 1).getDay();
+  const daysInMonth = new Date(calViewYear, calViewMonth+1, 0).getDate();
+  const prevDays = new Date(calViewYear, calViewMonth, 0).getDate();
+  const todaySrv = getServerTime();
+
+  // Previous month trailing days
+  for(let i=firstDow-1;i>=0;i--){
+    const c=document.createElement('div');
+    c.className='admin-cal-cell other-month';
+    c.textContent=prevDays-i;
+    grid.appendChild(c);
+  }
+
+  // Current month days
+  for(let d=1;d<=daysInMonth;d++){
+    const key=calToKey(calViewYear,calViewMonth,d);
+    const isToday=calViewYear===todaySrv.getFullYear()&&calViewMonth===todaySrv.getMonth()&&d===todaySrv.getDate();
+    const isSel=calSelectedDate===key;
+    const isHol=!!calHolidays[key];
+    let cls='admin-cal-cell';
+    if(isToday) cls+=' today';
+    if(isSel)   cls+=' selected';
+    if(isHol)   cls+=' holiday';
+    const c=document.createElement('div');
+    c.className=cls;
+    c.textContent=d;
+    if(isHol){
+      const dot=document.createElement('div');
+      dot.className='hol-dot';
+      dot.title=calHolidays[key];
+      c.appendChild(dot);
+    }
+    c.onclick=((_key,_d)=>()=>calSelectDate(_key,_d))(key,d);
+    grid.appendChild(c);
+  }
+
+  // Next month leading days
+  const trail=(7-((firstDow+daysInMonth)%7))%7;
+  for(let d=1;d<=trail;d++){
+    const c=document.createElement('div');
+    c.className='admin-cal-cell other-month';
+    c.textContent=d;
+    grid.appendChild(c);
+  }
+}
+
+function calPrevMonth(){ calViewMonth--;if(calViewMonth<0){calViewMonth=11;calViewYear--;}renderAdminCal(); }
+function calNextMonth(){ calViewMonth++;if(calViewMonth>11){calViewMonth=0;calViewYear++;}renderAdminCal(); }
+
+// ── calSelectDate — auto-loads date and shows per-date settings panel ──────────
+function calSelectDate(key, d){
+  calSelectedDate = key;
+
+  // Update selected bar
+  const dow = new Date(key+'T00:00:00').getDay();
+  const label = CAL_DAYS[dow]+', '+CAL_MONTHS[calViewMonth]+' '+d+', '+calViewYear;
+  document.getElementById('admin-sel-label').textContent = label;
+  document.getElementById('admin-cal-selected-bar').style.display = 'flex';
+
+  // Update date settings panel header
+  document.getElementById('date-panel-badge').textContent = key;
+  document.getElementById('date-panel-sub').textContent = 'AM/PM sessions & holiday for '+label;
+  document.getElementById('admin-session-status').style.display = 'none';
+
+  // Show the settings panel with animation
+  const panel = document.getElementById('date-settings-panel');
+  panel.classList.remove('visible');
+  void panel.offsetWidth; // force reflow for animation restart
+  panel.classList.add('visible');
+
+  // Load per-date settings from Firebase
+  db.ref('dateSettings/'+key).once('value').then(snap => {
+    const ds = snap.val() || {};
+
+    // AM toggle
+    const amOn = ds.amEnabled !== false;
+    document.getElementById('date-am-toggle').checked = amOn;
+    document.getElementById('admin-am-sub').textContent = amOn
+      ? '✅ AM slots are ON for this date'
+      : '⛔ AM slots are OFF for this date';
+
+    // PM toggle
+    const pmOn = ds.pmEnabled !== false;
+    document.getElementById('date-pm-toggle').checked = pmOn;
+    document.getElementById('admin-pm-sub').textContent = pmOn
+      ? '✅ PM slots are ON for this date'
+      : '⛔ PM slots are OFF for this date';
+
+    // Holiday
+    const hol = ds.holiday || '';
+    if(hol){
+      document.getElementById('holiday-display').style.display = 'block';
+      document.getElementById('holiday-name-badge').textContent = hol;
+      document.getElementById('holiday-input').value = hol;
+      document.getElementById('admin-sel-sub').textContent = '🎉 Holiday: '+hol;
+    } else {
+      document.getElementById('holiday-display').style.display = 'none';
+      document.getElementById('holiday-input').value = '';
+      document.getElementById('admin-sel-sub').textContent = 'No holiday set';
+    }
+  });
+
+  // Auto-load data for the selected date
+  loadDate();
+  renderAdminCal();
+}
+
+// ── Per-date AM/PM toggle handler ─────────────────────────────────────────────
+async function onDateSessionToggle(session){
+  if(!calSelectedDate){ toast('⚠ Select a date first'); return; }
+  const on = document.getElementById('date-'+session+'-toggle').checked;
+  const key = session==='am' ? 'amEnabled' : 'pmEnabled';
+  try {
+    await db.ref('dateSettings/'+calSelectedDate).update({[key]: on});
+    const label = session.toUpperCase()+' Session';
+    const subEl = document.getElementById('admin-'+session+'-sub');
+    subEl.textContent = on
+      ? '✅ '+label+' slots are ON for this date'
+      : '⛔ '+label+' slots are OFF for this date';
+    const status = document.getElementById('admin-session-status');
+    status.textContent = on
+      ? '✅ '+label+' enabled for '+calSelectedDate
+      : '⊘ '+label+' disabled for '+calSelectedDate;
+    status.style.background = on ? '#f0fdf4' : '#fef2f2';
+    status.style.color = on ? '#166534' : '#991b1b';
+    status.style.display = 'block';
+    setTimeout(() => { status.style.display = 'none'; }, 3000);
+    toast((on ? '✅' : '⊘')+' '+label+' '+(on?'enabled':'disabled')+' for '+calSelectedDate);
+  } catch(e){ toast('❌ Error: '+e.message); }
+}
+
+// ── Holiday save / remove ─────────────────────────────────────────────────────
+async function saveHoliday(){
+  if(!calSelectedDate){ toast('⚠ Select a date first'); return; }
+  const val = document.getElementById('holiday-input').value.trim();
+  try {
+    await db.ref('dateSettings/'+calSelectedDate).update({holiday: val || null});
+    // Update local holiday cache
+    if(val){ calHolidays[calSelectedDate] = val; }
+    else { delete calHolidays[calSelectedDate]; }
+    if(val){
+      document.getElementById('holiday-display').style.display = 'block';
+      document.getElementById('holiday-name-badge').textContent = val;
+      document.getElementById('admin-sel-sub').textContent = '🎉 Holiday: '+val;
+    } else {
+      document.getElementById('holiday-display').style.display = 'none';
+      document.getElementById('holiday-input').value = '';
+      document.getElementById('admin-sel-sub').textContent = 'No holiday set';
+    }
+    toast(val ? '🎉 Holiday saved: '+val : '🗑 Holiday removed');
+    renderAdminCal(); // refresh dots
+  } catch(e){ toast('❌ Error: '+e.message); }
+}
+
+async function removeHoliday(){
+  document.getElementById('holiday-input').value = '';
+  await saveHoliday();
+}
+
+// Initialize calendar immediately (before Firebase auth)
+renderAdminCal();
+
 </script>
 </body>
 </html>
