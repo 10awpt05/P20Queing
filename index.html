@@ -2453,12 +2453,14 @@ async function checkMonthlyLimitByID(idType, idNum, limitCount) {
 
         // ── GUARD: Re-validate selected session is still enabled and has slots ───────
         const _dateDs = calDateSettings[targetStr] || {};
-        if (selectedTime === 'AM' && slotConfig.amEnabled === false) {
-          return toast('⛔ AM session has been disabled. Please refresh.');
-        }
-        if (selectedTime === 'PM' && slotConfig.pmEnabled === false) {
-          return toast('⛔ PM session has been disabled. Please refresh.');
-        }
+          if (!isEditing) {
+            if (selectedTime === 'AM' && slotConfig.amEnabled === false) {
+              return toast('⛔ AM session has been disabled. Please refresh.');
+            }
+            if (selectedTime === 'PM' && slotConfig.pmEnabled === false) {
+              return toast('⛔ PM session has been disabled. Please refresh.');
+            }
+          }
         const _amTakenGuard = getTakenCountFromAtomic(targetStr, 'AM');
         const _pmTakenGuard = getTakenCountFromAtomic(targetStr, 'PM');
         if (!isEditing) {
