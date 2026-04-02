@@ -61,6 +61,12 @@
           </h1>
           <p data-i18n="appSubtitle">Get your Control number</p>
         </div>
+
+        <div id="pht-clock" style="display:flex;flex-direction:column;align-items:flex-end;gap:2px;margin:0 10px;">
+          <div id="clock-time" style="font-size:17px;font-weight:800;color:#fff;letter-spacing:0.5px;font-family:'Courier Prime',monospace;line-height:1;">--:--:-- --</div>
+          <div id="clock-date" style="font-size:10px;color:rgba(255,255,255,0.65);font-weight:600;text-align:right;"></div>
+          <div style="font-size:9px;background:rgba(255,255,255,0.18);border:1px solid rgba(255,255,255,0.3);border-radius:6px;padding:2px 6px;color:rgba(255,255,255,0.85);font-weight:700;letter-spacing:0.5px;">🇵🇭 PHT</div>
+        </div>
         <button
           class="burger-btn"
           id="burger-btn"
@@ -1183,9 +1189,9 @@ async function checkMonthlyLimitByID(idType, idNum, limitCount) {
 
       let selectedTime = null;
       let editingTicketId = null;
-      // takenNumbersData: live snapshot of takenNumbers node (source of truth for slot counts)
       let takenNumbersData = {};
       let disabledNumbers = {};
+      let calDateSettings = {};
       let myTickets = [],
         myTicketIds = JSON.parse(
           localStorage.getItem("pq_my_ticket_ids") || "[]",
@@ -1219,6 +1225,25 @@ async function checkMonthlyLimitByID(idType, idNum, limitCount) {
       function pad3(n) {
         return String(n).padStart(3, "0");
       }
+
+      function shuffleArray(arr) {
+        const a = [...arr];
+        for (let i = a.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [a[i], a[j]] = [a[j], a[i]];
+        }
+        return a;
+      }
+
+      function withTimeout(promise, ms) {
+        return Promise.race([
+          promise,
+          new Promise((_, reject) =>
+            setTimeout(() => reject(new Error("timeout")), ms)
+          )
+        ]);
+      }
+
       function fmt(t) {
         if (!t) return "—";
         const [h, m] = t.split(":").map(Number);
@@ -1708,6 +1733,8 @@ async function checkMonthlyLimitByID(idType, idNum, limitCount) {
           bp.classList.add("active");
         } else {
           selectedTime = null;
+          document.getElementById('btn-am').classList.remove('active');
+          document.getElementById('btn-pm').classList.remove('active');
         }
       }
 
@@ -1986,12 +2013,10 @@ async function checkMonthlyLimitByID(idType, idNum, limitCount) {
           document.querySelector(".today-status-row").style.display = "none";
           document.querySelector(".tmr-notice").style.display = "none";
         } else if (status === "closed") {
-          btn.style.display = "none";
-          msg.style.display = "block";
-          msg.innerHTML =
-            "Claiming closed. Opens <strong>" +
-            fmt(scheduleSettings.claimStart) +
-            " Tomorrow</strong>";
+            document.getElementById("today-card").style.display = "none";
+            document.getElementById("slot-banner").classList.remove("show");
+            document.getElementById("form-card").classList.remove("show");
+            return;
         }if (targetFullyClosed) {
             btn.style.display = "block";
             btn.disabled = true;
@@ -2011,6 +2036,7 @@ async function checkMonthlyLimitByID(idType, idNum, limitCount) {
           btn.classList.add("full-btn");
           msg.style.display = "none";
         } else {
+          document.getElementById("today-card").style.display = "";
           btn.style.display = "block";
           btn.disabled = false;
           btn.textContent = "Get My Control Number";
@@ -2105,6 +2131,8 @@ async function checkMonthlyLimitByID(idType, idNum, limitCount) {
       }
 
       function selectTime(t) {
+          document.getElementById('btn-am').style.outline = ''; // ← add
+          document.getElementById('btn-pm').style.outline = ''; // ← add
         if (!isClaimingOpen()) return;
           if (t === 'AM' && slotConfig.amEnabled === false) return;
           if (t === 'PM' && slotConfig.pmEnabled === false) return;
@@ -2153,24 +2181,30 @@ async function checkMonthlyLimitByID(idType, idNum, limitCount) {
         document.getElementById("btn-generate").textContent = "Save Changes";
         const ba = document.getElementById("btn-am"),
           bp = document.getElementById("btn-pm");
+        selectedTime = t.time;
+        ba.classList.remove("active", "full");
+        bp.classList.remove("active", "full");
+
         if (t.time === "AM") {
-          bp.disabled = true;
-          bp.style.pointerEvents = "none";
-          bp.style.opacity = "0.4";
-          bp.style.cursor = "not-allowed";
+          ba.classList.add("active");
           ba.disabled = false;
           ba.style.pointerEvents = "none";
           ba.style.opacity = "1";
           ba.style.cursor = "default";
+          bp.disabled = true;
+          bp.style.pointerEvents = "none";
+          bp.style.opacity = "0.4";
+          bp.style.cursor = "not-allowed";
         } else {
-          ba.disabled = true;
-          ba.style.pointerEvents = "none";
-          ba.style.opacity = "0.4";
-          ba.style.cursor = "not-allowed";
+          bp.classList.add("active");
           bp.disabled = false;
           bp.style.pointerEvents = "none";
           bp.style.opacity = "1";
           bp.style.cursor = "default";
+          ba.disabled = true;
+          ba.style.pointerEvents = "none";
+          ba.style.opacity = "0.4";
+          ba.style.cursor = "not-allowed";
         }
         validateNameField("inp-name", "hint-name", "counter-name");
         validateNameField("inp-ben1-name", "hint-ben1-name", "counter-ben1");
@@ -2404,7 +2438,15 @@ async function checkMonthlyLimitByID(idType, idNum, limitCount) {
               : "⚠️ Please enter ID Number for Beneficiary 2",
           );
         }
-        if (!selectedTime) return toast("Please select AM or PM");
+        if (!selectedTime) {
+          document.getElementById('btn-am').style.outline = '2px solid #ef4444';
+          document.getElementById('btn-pm').style.outline = '2px solid #ef4444';
+          setTimeout(() => {
+            document.getElementById('btn-am').style.outline = '';
+            document.getElementById('btn-pm').style.outline = '';
+          }, 2000);
+          return toast("⚠️ Please select AM or PM before generating");
+        }
 
         const btn = document.getElementById("btn-generate");
         const isEditing = !!editingTicketId;
@@ -2419,10 +2461,12 @@ async function checkMonthlyLimitByID(idType, idNum, limitCount) {
         }
         const _amTakenGuard = getTakenCountFromAtomic(targetStr, 'AM');
         const _pmTakenGuard = getTakenCountFromAtomic(targetStr, 'PM');
-        if (selectedTime === 'AM' && _amTakenGuard >= getLimitAm())
-          return toast('⛔ AM slots just filled up. Please try PM.');
-        if (selectedTime === 'PM' && _pmTakenGuard >= getLimitPm())
-          return toast('⛔ PM slots just filled up. Please try AM.');
+        if (!isEditing) {
+          if (selectedTime === 'AM' && _amTakenGuard >= getLimitAm())
+            return toast('⛔ AM slots just filled up. Please try PM.');
+          if (selectedTime === 'PM' && _pmTakenGuard >= getLimitPm())
+            return toast('⛔ PM slots just filled up. Please try AM.');
+        }
 
         btn.disabled = true;
         btn.textContent = "Checking...";
@@ -2870,6 +2914,33 @@ async function checkMonthlyLimitByID(idType, idNum, limitCount) {
           console.warn("Daily reset error:", e);
         }
       }
+
+
+        (function() {
+            const DAYS_C = ['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+            const MONTHS_C = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+            const pad = n => String(n).padStart(2, '0');
+
+            function getPHT() {
+              return new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Manila' }));
+            }
+
+            function tickClock() {
+              const d = getPHT();
+              let h = d.getHours(), m = d.getMinutes(), s = d.getSeconds();
+              const ap = h >= 12 ? 'PM' : 'AM';
+              h = h % 12 || 12;
+              const timeEl = document.getElementById('clock-time');
+              const dateEl = document.getElementById('clock-date');
+              if (timeEl) timeEl.textContent = pad(h) + ':' + pad(m) + ':' + pad(s) + ' ' + ap;
+              if (dateEl) dateEl.textContent = DAYS_C[d.getDay()] + ', ' + MONTHS_C[d.getMonth()] + ' ' + d.getDate() + ', ' + d.getFullYear();
+            }
+
+            tickClock();
+            setInterval(tickClock, 1000);
+          })();
+
+
 
       function scheduleNextReset() {
         const n = getServerTime();
