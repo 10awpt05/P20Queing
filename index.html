@@ -2012,6 +2012,11 @@ async function checkMonthlyLimitByID(idType, idNum, limitCount) {
             "No distribution on <strong>Saturday & Sunday</strong>.<br>Claiming resumes on <strong>Sunday</strong>";
           document.querySelector(".today-status-row").style.display = "none";
           document.querySelector(".tmr-notice").style.display = "none";
+          document.getElementById("today-card").style.display = "none";
+          document.getElementById("slot-banner").classList.remove("show");
+          const calNoticeWeekend = document.querySelector(".cal-notice");
+          if (calNoticeWeekend) calNoticeWeekend.style.display = "none";
+          return;
         } else if (status === "closed") {
             document.getElementById("today-card").style.display = "none";
             document.getElementById("slot-banner").classList.remove("show");
