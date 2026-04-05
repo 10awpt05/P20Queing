@@ -1540,6 +1540,7 @@ async function checkMonthlyLimitByID(idType, idNum, limitCount) {
       db.ref("scheduleSettings").on("value", (s) => {
         if (s.exists())
           scheduleSettings = Object.assign({}, scheduleSettings, s.val());
+        applyBen2Visibility(scheduleSettings.ben2Enabled !== false);
         scheduleSettings.claimRestricted = true;
         updateScheduleBar();
         updateStatusBanner();
@@ -3164,11 +3165,25 @@ async function checkMonthlyLimitByID(idType, idNum, limitCount) {
       }
       applyTranslations();
 
-      function dismissWelcome() {
+    function dismissWelcome() {
     const today = getServerTime().toISOString().slice(0, 10);
     localStorage.setItem('pq_welcome_seen', today);
     document.getElementById('welcome-overlay').style.display = 'none';
   }
+
+  function applyBen2Visibility(show) {
+  // Find the Beneficiary 2 person-section by looking for its unique input
+  const ben2Input = document.getElementById('inp-ben2-name');
+  if (ben2Input) {
+    const section = ben2Input.closest('.person-section');
+    if (section) section.style.display = show ? '' : 'none';
+  }
+  if (!show) {
+    document.getElementById('inp-ben2-name').value  = '';
+    document.getElementById('inp-id-type2').value   = '';
+    document.getElementById('inp-id-number2').value = '';
+  }
+}
     </script>
   </body>
 </html>

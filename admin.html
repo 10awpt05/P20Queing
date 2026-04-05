@@ -634,6 +634,23 @@
         </div>
       </div>
 
+      <div class="settings-block">
+        <h3><span class="icon">🧑‍🤝‍🧑</span> Beneficiary 2 Visibility</h3>
+        <p style="font-size:12px;color:var(--gray);margin-bottom:14px;">
+          Toggle OFF to hide the Beneficiary 2 section from the user form entirely.
+        </p>
+        <div class="toggle-row state-on" id="ben2-toggle-row">
+          <div class="toggle-label-group">
+            <div class="toggle-main-label" id="ben2-toggle-main-label">✅ Beneficiary 2: VISIBLE</div>
+            <div class="toggle-sub-label" id="ben2-toggle-sub-label">Users can fill in Beneficiary 2 details</div>
+          </div>
+          <label class="switch">
+            <input type="checkbox" id="ben2-visible-toggle" onchange="onBen2VisibilityToggle()" checked/>
+            <span class="slider"></span>
+          </label>
+        </div>
+      </div>
+
       <button class="btn-save-settings" onclick="saveSettings()">💾 Save All Settings</button>
       <div class="settings-status" id="settings-status" style="display:none;"></div>
     </div>
@@ -1017,6 +1034,9 @@ function applySettingsToUI(){
   const ben2Limit=ml.ben2??0;
   if(ben2Limit===0){setMonthlyLimitMode('ben2','unlimited');}
   else{setMonthlyLimitMode('ben2','limited');document.getElementById('ben2-monthly-limit').value=ben2Limit;}
+  const ben2On = scheduleSettings.ben2Enabled !== false;
+  document.getElementById('ben2-visible-toggle').checked = ben2On;
+  applyBen2ToggleUI(ben2On);
 }
 
 function updateCurrentSettingsBar(){
@@ -1060,7 +1080,8 @@ async function saveSettings(){
     pmStart:document.getElementById('pm-start').value,
     pmEnd:document.getElementById('pm-end').value,
     deviceLimit:deviceLimit,
-    monthlyLimits:{claimant:claimantMonthly,ben1:ben1Monthly,ben2:ben2Monthly}
+    monthlyLimits:{claimant:claimantMonthly,ben1:ben1Monthly,ben2:ben2Monthly},
+    ben2Enabled: document.getElementById('ben2-visible-toggle').checked
   };
   if(isOn&&ns.claimStart>=ns.claimEnd){showSettingsStatus('❌ Claiming window: start must be before end',false);return;}
   if(ns.amStart>=ns.amEnd){showSettingsStatus('❌ AM window: start must be before end',false);return;}
@@ -1512,6 +1533,25 @@ function renderAdminCal(){
     c.className='admin-cal-cell other-month';
     c.textContent=d;
     grid.appendChild(c);
+  }
+}
+
+
+function onBen2VisibilityToggle() {
+  applyBen2ToggleUI(document.getElementById('ben2-visible-toggle').checked);
+}
+function applyBen2ToggleUI(isOn) {
+  const row   = document.getElementById('ben2-toggle-row');
+  const label = document.getElementById('ben2-toggle-main-label');
+  const sub   = document.getElementById('ben2-toggle-sub-label');
+  if (isOn) {
+    row.className   = 'toggle-row state-on';
+    label.textContent = '✅ Beneficiary 2: VISIBLE';
+    sub.textContent   = 'Users can fill in Beneficiary 2 details';
+  } else {
+    row.className   = 'toggle-row state-off';
+    label.textContent = '⛔ Beneficiary 2: HIDDEN';
+    sub.textContent   = 'Beneficiary 2 section is hidden from users';
   }
 }
 
